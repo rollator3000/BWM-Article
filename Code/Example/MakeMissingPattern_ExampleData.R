@@ -1,7 +1,7 @@
 "
 Script from Dr. Hornung with an example of how to create a BWM-Pattern into a 
 raw (multi-omics) data-set that originally doesn't miss any values.
-  --> Resulting DFs are in 'Data/Example_Data/ExampleData.Rda'
+   --> Resulting DFs are in 'Data/Example_Data/ExampleData.Rda'
 "
 # Set WD
 setwd("C:/Users/kuche/Desktop/BWM-Paper")
