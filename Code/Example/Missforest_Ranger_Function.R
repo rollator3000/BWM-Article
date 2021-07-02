@@ -1,20 +1,35 @@
-##
-## MissForest - nonparametric missing value imputation for mixed-type data
-##
-## This R script contains the actual missForest function.
-##
-## Author: D.Stekhoven, stekhoven@stat.math.ethz.ch
-##
-## Acknowledgement: Steve Weston for input regarding parallel execution (2012)
-##############################################################################
+"
+Example script on how to use the 'missForest' package, but instead of using the 
+package 'randomForest' for the construction of the randomForests, we use the 
+'ranger' package as it is much faster with high-dimensional data.
 
+In general: 'MissForest' is a nonparametric missing value imputation for 
+             mixed-type data.
+             
+The script contains the actual missForest function from D.Stekhoven 
+(stekhoven@stat.math.ethz.ch).
+"
+# (0) Set WD & load packages
+setwd("/Users/frederik/Desktop/BWM-Article/") # Mac
+setwd("C:/Users/kuche/Desktop/BWM-Paper")     # Windows
+
+library(missForest)
+library(ranger)
+library(tictoc)
+library(foreach)
+library(doParallel)
+getDoParWorkers()
+registerDoParallel(cores = 2)
+getDoParWorkers() # get amount of cores
+
+# (1) Define the missForest function, but use the 'ranger' package instead of the
+#     'randomForest'
 missForestRanger <- function(xmis, maxiter = 10, ntree = 100, variablewise = FALSE,
                        decreasing = FALSE, verbose = FALSE,
                        mtry = floor(sqrt(ncol(xmis))), replace = TRUE,
                        classwt = NULL, cutoff = NULL, strata = NULL,
                        sampsize = NULL, nodesize = NULL, maxnodes = NULL,
-                       xtrue = NA, parallelize = c('no', 'variables', 'forests'))
-{ ## ----------------------------------------------------------------------
+                       xtrue = NA, parallelize = c('no', 'variables', 'forests')) { 
   ## Arguments:
   ## xmis         = data matrix with missing values
   ## maxiter      = stop after how many iterations (default = 10)
@@ -394,4 +409,67 @@ missForestRanger <- function(xmis, maxiter = 10, ntree = 100, variablewise = FAL
   return(out)
 }
 
+# (2) Copy the 'missForest'-env as 'missForestRanger'-env
 environment(missForestRanger) <- environment(missForest)
+
+# (3) Function to measure time for imputation for various settings
+
+# --> Save the results of the imputation into a DF, so we can see the needed time
+#     for the imputation for the various settings
+time_for_imputation <- function(data, maxiter, ntree, parallelize) {
+  
+  
+  
+}
+
+# (4) Apply 'missForestRanger()' function to the example data (w/ BWM)
+# 4-1 Load the example data (five train- & test-sets)
+#     --> all except for 'datatrain1' contain BWM-Values
+load('./Data/Example_Data/ExampleData.Rda')
+data <- datatrain2
+
+# 4-2 Count the amount of NA's & get a overview to it then do imputation & count NAs then
+miss_values <- sapply(colnames(data), function(x) sum(is.na(data[x])))
+summary(miss_values)
+
+# 4-3 Impute the missing and count the missingvalues in the imputed DF (should be non)
+data_imputed <- missForestRanger(data, maxiter = 2, ntree = 25)
+
+miss_values2 <- sapply(colnames(data_imputed), function(x) sum(is.na(data_imputed[x])))
+summary(miss_values2)
+
+
+
+
+
+
+
+# --- PLAY AROUND ---------------------------------------------------------------
+# Load example DF and induce missing values
+df_example                      <- iris
+df_example$Petal.Length[25:75]  <- NA
+df_example$Sepal.Length[82:124] <- NA
+df_example$Sepal.Width[1:34]    <- NA
+
+# Count missing values in 'df_example' & get a overview to it
+miss_values <- sapply(colnames(df_example), function(x) sum(is.na(df_example[x])))
+summary(miss_values)
+
+# Impute the missing values & check for any remaining missing-values
+tic("Imputation w/o parallel")
+df_example_imputed <- missForestRanger(df_example, maxiter = 10, ntree = 250)
+a = toc()
+
+tic("Imputation w/ parallel variables")
+df_example_imputed <- missForestRanger(df_example, maxiter = 10, ntree = 250,
+                                       parallelize = 'variables')
+a = toc()
+
+tic("Imputation w/ parallel forests")
+df_example_imputed <- missForestRanger(df_example, maxiter = 10, ntree = 250,
+                                       parallelize = 'forests')
+a = toc()
+
+# Count the missing values in the imputed data (should be noe)
+miss_values2  <- sapply(colnames(df_example_imputed), function(x) sum(is.na(df_example_imputed[x])))
+summary(miss_values2)
