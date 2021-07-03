@@ -18,9 +18,6 @@ library(ranger)
 library(tictoc)
 library(foreach)
 library(doParallel)
-getDoParWorkers()
-registerDoParallel(cores = 2)
-getDoParWorkers() # get amount of cores
 
 # (1) Define the missForest function, but use the 'ranger' package instead of the
 #     'randomForest'
@@ -413,63 +410,121 @@ missForestRanger <- function(xmis, maxiter = 10, ntree = 100, variablewise = FAL
 environment(missForestRanger) <- environment(missForest)
 
 # (3) Function to measure time for imputation for various settings
-
-# --> Save the results of the imputation into a DF, so we can see the needed time
-#     for the imputation for the various settings
-time_for_imputation <- function(data, maxiter, ntree, parallelize) {
+time_for_imputation <- function(data_name, maxiter = 10, ntree = 100, 
+                                parallelize = c('no', 'variables', 'forests')) {
+  "Measure the time needed to impute the (block-wise) missing values of 'data'.
   
+  Args:
+    > data_name   (chr): Name of a DF in the workspace w/ (block-wise) missing
+                         values that shall be imputed
+    > maxiter     (int): Maximum number of iterations for the imputation with 
+                         the 'missForestRanger()' function
+    > ntree       (int): Amount of trees for the RF for the imputation
+    > parallelize (chr): Shall the processes be parallelized? Must be in: 'no', 
+                         'variables', 'forests'
+                         
+  Return:
+    > data.frame with the needed time for the imputation, the settings, aswell 
+      as the amount of missing values before and after the imputation"
+  # [0] Check Inputs
   
+  # [1] Count amount of missing values in data
+  data               <- eval(as.symbol(data_name))
+  miss_values_before <- sum(sapply(colnames(data),  function(x) sum(is.na(data[x]))))
   
+  # [2] Impute the missing values & count amount of missing values then
+  # 2-1 Imputation
+  tic("Imputation")
+  tryCatch(
+    expr = {
+      data_imputed <- missForestRanger(data, maxiter = maxiter, ntree = ntree,
+                                       parallelize = parallelize)
+    },
+    error = function(e) { 
+      print("Error in the imputation")
+    },
+    warning = function(w){
+      print("Error in the imputation")
+    }
+  )
+  a = toc()
+  
+  # 2-2 In case the imputation didn't work, use original data as imputed data
+  if (!exists("data_imputed")) {
+    data_imputed <- data
+  } else {
+    data_imputed <- data_imputed$ximp
+  }
+  
+  # 2-2 Amount of missing values in imputed
+  miss_values_after <- sum(sapply(colnames(data_imputed), 
+                                  function(x) sum(is.na(data_imputed[x]))))
+  
+  # [3] Create DF to store the time & settings of the evaluation
+  return_df <- data.frame("data_set" = data_name,
+    "inpute_time" = a$toc - a$tic, 
+    "maxiter" = maxiter,
+    "ntree" = ntree,  
+    "parallelize" = parallelize,
+    "miss_values_before" = miss_values_before,
+    "miss_values_after" = miss_values_after,
+    "cores" = getDoParWorkers())
+  
+  return(return_df)
 }
 
 # (4) Apply 'missForestRanger()' function to the example data (w/ BWM)
 # 4-1 Load the example data (five train- & test-sets)
 #     --> all except for 'datatrain1' contain BWM-Values
 load('./Data/Example_Data/ExampleData.Rda')
-data <- datatrain2
 
-# 4-2 Count the amount of NA's & get a overview to it then do imputation & count NAs then
-miss_values <- sapply(colnames(data), function(x) sum(is.na(data[x])))
-summary(miss_values)
+for (curr_df in c('datatrain1', 'datatrain2', 'datatrain3', 'datatrain4', 'datatrain5')) {
+  for (curr_cores in c(2, 5, 10, 20)) {
+    for (maxiter_ in c(1, 2, 5, 10)) {
+      for (ntree_ in c(25, 50, 100, 250)) {
+        for (parallelize_ in c("no", "variables", "forests")) {
+          
+          # --1 Short Info to DF we impute
+          print(paste("CURRENT DATA-SET:", curr_df, "---------------------------"))
+          
+          # --2 Do Imputation & register amount of cores
+          registerDoParallel(cores = curr_cores)
+          curr_res <- time_for_imputation(data_name = curr_df,
+                                          maxiter = maxiter_,
+                                          ntree = ntree_,
+                                          parallelize = parallelize_)
+          
+          # --3 Bind results to 'all_res'
+          all_res <- rbind(all_res, curr_res)
+        }
+      }
+    }
+  }
+}
 
-# 4-3 Impute the missing and count the missingvalues in the imputed DF (should be non)
-data_imputed <- missForestRanger(data, maxiter = 2, ntree = 25)
 
-miss_values2 <- sapply(colnames(data_imputed), function(x) sum(is.na(data_imputed[x])))
-summary(miss_values2)
-
-
-
-
-
-
-
-# --- PLAY AROUND ---------------------------------------------------------------
+# --- PLAY AROUND EXAMPLE -------------------------------------------------------
+'
 # Load example DF and induce missing values
 df_example                      <- iris
 df_example$Petal.Length[25:75]  <- NA
 df_example$Sepal.Length[82:124] <- NA
 df_example$Sepal.Width[1:34]    <- NA
 
-# Count missing values in 'df_example' & get a overview to it
-miss_values <- sapply(colnames(df_example), function(x) sum(is.na(df_example[x])))
-summary(miss_values)
+# Loop over the various settings we want to test & store them in a DF
+all_res <- data.frame()
 
-# Impute the missing values & check for any remaining missing-values
-tic("Imputation w/o parallel")
-df_example_imputed <- missForestRanger(df_example, maxiter = 10, ntree = 250)
-a = toc()
-
-tic("Imputation w/ parallel variables")
-df_example_imputed <- missForestRanger(df_example, maxiter = 10, ntree = 250,
-                                       parallelize = 'variables')
-a = toc()
-
-tic("Imputation w/ parallel forests")
-df_example_imputed <- missForestRanger(df_example, maxiter = 10, ntree = 250,
-                                       parallelize = 'forests')
-a = toc()
-
-# Count the missing values in the imputed data (should be noe)
-miss_values2  <- sapply(colnames(df_example_imputed), function(x) sum(is.na(df_example_imputed[x])))
-summary(miss_values2)
+for (maxiter_ in c(1, 2, 5, 10)) {
+  for (ntree_ in c(25, 50, 100, 250)) {
+    for (parallelize_ in c("no", "variables", "forests")) {
+      
+      curr_res <- time_for_imputation(data_name = "df_example",
+                                      maxiter = maxiter_,
+                                      ntree = ntree_,
+                                      parallelize = parallelize_)
+      
+      all_res <- rbind(all_res, curr_res)
+    }
+  }
+}
+'
