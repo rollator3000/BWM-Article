@@ -479,6 +479,7 @@ time_for_imputation <- function(data_name, maxiter = 10, ntree = 100,
 # 4-1 Load the example data (five train- & test-sets)
 #     --> all except for 'datatrain1' contain BWM-Values
 load('./Data/Example_Data/ExampleData.Rda')
+all_res <- data.frame()
 
 for (curr_df in c('datatrain1', 'datatrain2', 'datatrain3', 'datatrain4', 'datatrain5')) {
   for (curr_cores in c(2, 5, 10, 20)) {
