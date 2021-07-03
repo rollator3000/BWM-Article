@@ -10,14 +10,16 @@ The script contains the actual missForest function from D.Stekhoven
 (stekhoven@stat.math.ethz.ch).
 "
 # (0) Set WD & load packages
-setwd("/Users/frederik/Desktop/BWM-Article/") # Mac
-setwd("C:/Users/kuche/Desktop/BWM-Paper")     # Windows
+setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
+setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
+setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
 
 library(missForest)
 library(ranger)
 library(tictoc)
 library(foreach)
 library(doParallel)
+detectCores() # --> amount of availble cores
 
 # (1) Define the missForest function, but use the 'ranger' package instead of the
 #     'randomForest'
