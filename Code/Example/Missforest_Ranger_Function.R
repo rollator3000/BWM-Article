@@ -481,10 +481,10 @@ time_for_imputation <- function(data_name, maxiter = 10, ntree = 100,
 load('./Data/Example_Data/ExampleData.Rda')
 all_res <- data.frame()
 
-for (curr_df in c('datatrain1', 'datatrain2', 'datatrain3', 'datatrain4', 'datatrain5')) {
+for (curr_df in c('datatrain2', 'datatrain3', 'datatrain4', 'datatrain5')) {
   for (curr_cores in c(2, 5, 10, 20)) {
-    for (maxiter_ in c(1, 2, 5, 10)) {
-      for (ntree_ in c(25, 50, 100, 250)) {
+    for (maxiter_ in c(1, 2, 5)) {
+      for (ntree_ in c(25, 50)) {
         for (parallelize_ in c("no", "variables", "forests")) {
           
           # --1 Short Info to DF we impute
@@ -505,6 +505,7 @@ for (curr_df in c('datatrain1', 'datatrain2', 'datatrain3', 'datatrain4', 'datat
   }
 }
 
+# write.csv2(all_res, "./Docs/MissForest_Imputation_Times/TrainPattern1.csv")
 
 # --- PLAY AROUND EXAMPLE -------------------------------------------------------
 '
