@@ -482,8 +482,8 @@ load('./Data/Example_Data/ExampleData.Rda')
 all_res <- data.frame()
 
 for (curr_df in c('datatrain2', 'datatrain3', 'datatrain4', 'datatrain5')) {
-  for (curr_cores in c(2, 5, 10, 20)) {
-    for (maxiter_ in c(1, 2, 5)) {
+  for (curr_cores in c(10, 20)) {
+    for (maxiter_ in c(2, 5)) {
       for (ntree_ in c(25, 50)) {
         for (parallelize_ in c("no", "variables", "forests")) {
           
