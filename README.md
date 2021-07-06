@@ -1,7 +1,7 @@
 # BMW-Paper
 This is the repository for the article 'Prediction approaches for partly missing multi-omics covariate data: An empirical comparison study'.  
-This article is written in colobration with Dr. Hornung & Jonas Hagenberg.  
-My personal contribution to the article is the implementation of various RF-approaches and the evaluation of these.
+This article is written in colobration with Anne-Laure Boulesteix, Roman Hornung *(both IBE @LMU)* & Jonas Hagenberg.  
+My personal contribution to the article is the implementation of various RF-approaches and the evaluation of these.  
 
 
 ## Project description
@@ -9,17 +9,18 @@ This project compares different approaches capable to deal with block-wise missi
 The approaches are either random forest based, or based on penalised regression. 
 
 ## Block-wise missingness:
-- Block-wise missingness is a special type of missingness that appears frequently in the context of Multi-Omics data. 
-It can, for example, arise when concatenating multiple clinical studies with the same target variable. Even though the datasets from the different studies have the same target variable, the observed features can still differ! The concatenation of such datasets results then in a DF with block-wise missingness!  
+- Block-wise missingness is a special type of missingness that appears frequently in the context of Multi-Omics data. It can, for example, arise when concatenating multiple clinical studies with the same target variable. Even though the datasets from the different studies have the same target variable, the observed features can still differ! The concatenation of such datasets results then in a DF with block-wise missingness!  
 
-- Regular model fitting on data with block-wise missingness is for most statistical approaches not directly possible, such that either the method needs to be adjusted or the data processed! Besides the training, the test data can also consist of block-wise missingness. Therefore the approaches must be able to deal with block-wise missing data in the test data as well as in the train data. <br>
+- Regular model fitting on data with block-wise missingness is for most approaches not directly possible, such that either the method needs to be adjusted or the data processed! 
 
-#### Example for data with blockwise missingness:
-Data with blockwise missingness always consists of different **folds** and **blocks**.
-  - A **block** describes a set of covariates containing all features collected based on a characteristic.  
-    All covariates that are related in content (e.g. *physical properties*: Height & Weight | *educational properties*: Income & Education').  
+- Besides the training, the test data can also consist of block-wise missingness. Therefore the approaches must be able to deal with block-wise missing data in the test data as well as in the train data. <br>
+
+### Example for data with blockwise missingness:
+Data with blockwise missingness always consists of different **folds** and **blocks**.  
+  - A **block** describes a set of covariates containing all features collected based on a characteristic  
+    -> All covariates that are related in content (e.g. *physical properties*: Height & Weight | *educational properties*: Income & Education').  
   - A **fold** represents a set of observations with the same observed blocks.  
-    All observations with the same observed features. Each fold is unique and every observation belongs to exactly one of them.
+    -> All observations with the same observed features. Each fold is unique and every observation belongs to exactly one of them.
   
 | ID  | Weight  | Height  | Income  | Education   | g1      | ...   | g100    | Y   |
 |---- |-------- |-------- |-------- |-----------  |-------  |-----  |-------  |---  |
@@ -41,3 +42,47 @@ Data with blockwise missingness always consists of different **folds** and **blo
      - **Fold2:** All observations with observed Educational & Biological properties
      - **Fold3:** All observations with observed Physical & Biological properties
    
+
+## Data   
+* The data comes from the TCGA *(The Cancer Genome Atlas)* and each dataset consits of multiple omics-blocks
+* The data was provided by Roman Hornung, who has worked with these multi-omics data-sets already  
+* The provided data doesn't contain any missing values, such that the blockwise-missingness needs to be induced  
+* Each data-set uses the 'TP53'-Mutation as response and consits of four blocks 'clinical', 'copy number variation', 'miRNA' & 'RNA'
+* 
+
+## Code  
+This section contains short descriptions to the scripts in 'Code/' - there is an logical order in these scripts!  
+To the '.py' scripts there is always a note to the enviroment to run the script from.  
+Details to the enviroments at the end of the READ-ME.  
+
+
+## Folder-Structure  
+```
+├── README.md <- Top-level README for devs working with this repository
+│ 
+├── Data <- All the data for this repository
+│   │   
+│   ├─── raw <- All 13 Multi-Omics DFs (as they were provided & w/o further processing)
+│   │         
+│   └─── Example_Data <- Examplary data needed for the implementations
+│  
+├── Docs <- Sources, Results and everything else documenting the repository  
+│   │  
+│   ├─── Article_Versions <- Different Versions of the article (shall be published in the end)
+│   └─── Imputation_Times <- Time needed for the imputation w/ various approaches
+│  
+├── envs <- the various enviroments of the project
+│
+└── code <- Code of the repository
+    │
+    ├── Example <- Templates & Examples
+    └── CODE_01.R 
+```
+## Enviroments
+To run the R-Scripts, you need R-Version 4.0.2/ 4.0.3  
+
+Run the PY-Scripts from the correct Conda-Environments!  
+Create the enviroment manually or install it via:  
+```
+conda env create -f .\envs\XYZ.yml
+```  
