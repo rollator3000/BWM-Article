@@ -479,31 +479,40 @@ time_for_imputation <- function(data_name, maxiter = 10, ntree = 100,
 # 4-1 Load the example data (five train- & test-sets)
 #     --> all except for 'datatrain1' contain BWM-Values
 load('./Data/Example_Data/ExampleData.Rda')
-all_res <- data.frame()
 
-for (curr_df in c('datatrain2', 'datatrain3', 'datatrain4', 'datatrain5')) {
-  for (curr_cores in c(10, 20)) {
-    for (maxiter_ in c(2, 5)) {
-      for (ntree_ in c(25, 50)) {
-        for (parallelize_ in c("no", "variables", "forests")) {
-          
-          # --1 Short Info to DF we impute
-          print(paste("CURRENT DATA-SET:", curr_df, "---------------------------"))
-          
-          # --2 Do Imputation & register amount of cores
-          registerDoParallel(cores = curr_cores)
-          curr_res <- time_for_imputation(data_name = curr_df,
-                                          maxiter = maxiter_,
-                                          ntree = ntree_,
-                                          parallelize = parallelize_)
-          
-          # --3 Bind results to 'all_res'
-          all_res <- rbind(all_res, curr_res)
-        }
-      }
-    }
-  }
-}
+# 4-2 Evaluate needed time for a single Setting
+registerDoParallel(cores = 30)
+curr_res <- time_for_imputation(data_name = 'datatrain2',
+                                maxiter = 2,
+                                ntree = 25,
+                                parallelize = "variables")
+
+# 4-3 Evalaute for a bunch of settings for the various data-sets 
+#     --> way too slow, so it takes WEEKS to get these results...
+# all_res <- data.frame()
+# for (curr_df in c('datatrain2', 'datatrain3', 'datatrain4', 'datatrain5')) {
+#   for (curr_cores in c(10, 20)) {
+#     for (maxiter_ in c(2, 5)) {
+#       for (ntree_ in c(25, 50)) {
+#         for (parallelize_ in c("no", "variables", "forests")) {
+#           
+#           # --1 Short Info to DF we impute
+#           print(paste("CURRENT DATA-SET:", curr_df, "---------------------------"))
+#           
+#           # --2 Do Imputation & register amount of cores
+#           registerDoParallel(cores = curr_cores)
+#           curr_res <- time_for_imputation(data_name = curr_df,
+#                                           maxiter = maxiter_,
+#                                           ntree = ntree_,
+#                                           parallelize = parallelize_)
+#           
+#           # --3 Bind results to 'all_res'
+#           all_res <- rbind(all_res, curr_res)
+#         }
+#       }
+#     }
+#   }
+# }
 
 # write.csv2(all_res, "./Docs/MissForest_Imputation_Times/TrainPattern1.csv")
 
