@@ -47,14 +47,22 @@ Data with blockwise missingness always consists of different **folds** and **blo
 * The data comes from the TCGA *(The Cancer Genome Atlas)* and each dataset consits of multiple omics-blocks
 * The data was provided by Roman Hornung, who has worked with these multi-omics data-sets already  
 * The provided data doesn't contain any missing values, such that the blockwise-missingness needs to be induced  
-* Each data-set uses the 'TP53'-Mutation as response and consits of four blocks 'clinical', 'copy number variation', 'miRNA' & 'RNA'
-* 
+* Each data-set uses the 'TP53'-Mutation as response and consits of four further (used) blocks 'clinical', 'copy number variation', 'miRNA' & 'RNA'
 
 ## Code  
 This section contains short descriptions to the scripts in 'Code/' - there is an logical order in these scripts!  
 To the '.py' scripts there is always a note to the enviroment to run the script from.  
-Details to the enviroments at the end of the READ-ME.  
+Details to the enviroments at the end of the READ-ME. 
 
+#### [1] 00_Inspect_raw_data.R
+    - Get a overview to the files in 'Data/Raw'
+      - do they contain all necessary blocks (clin, mirna, mutation, cnv, rna)
+      - is the response 'TP53' part of the 'mutation' block
+      - the amount of features & observations
+      - amount of variables with missing values
+    - Collect the amount of features per block for each DF and collect the Info in a DF
+      (resulting DF saved to Docs/DataInfo)
+    - Get the average amount of features & observations over all DFs
 
 ## Folder-Structure  
 ```
@@ -69,14 +77,15 @@ Details to the enviroments at the end of the READ-ME.
 ├── Docs <- Sources, Results and everything else documenting the repository  
 │   │  
 │   ├─── Article_Versions <- Different Versions of the article (shall be published in the end)
-│   └─── Imputation_Times <- Time needed for the imputation w/ various approaches
+│   ├─── DataInfo         <- Overview to amount of rows & features per block for each DF in Data/Raw
+│   └─── PhenomeImpute    <- Package to use the R-Function 'PhenomeImpute'
 │  
 ├── envs <- the various enviroments of the project
 │
 └── code <- Code of the repository
     │
     ├── Example <- Templates & Examples
-    └── CODE_01.R 
+    └── 00_Inspect_raw_data.R
 ```
 ## Enviroments
 To run the R-Scripts, you need R-Version 4.0.2/ 4.0.3  
