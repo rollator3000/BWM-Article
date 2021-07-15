@@ -142,8 +142,8 @@ load("./Data/Example_Data/ExampleData.Rda")
 
 # 3-2 Process the data
 # --1 Extract the response & delete the column in the df
-omicsdata         <- datatrain3
-ytarget           <- datatrain3$ytarget
+omicsdata         <- datatrain1
+ytarget           <- datatrain1$ytarget
 omicsdata$ytarget <- NULL
 
 "
@@ -161,11 +161,11 @@ omicsdata2imp <- ImputeWithTOBMI(omicsdata, blockind)
 toc()
 
 # --> 421 seconds for 'datatrain4'
-# --> XXX seconds for 'datatrain3'
-# --> XXX seconds for 'datatrain2'
-# --> XXX seconds for 'datatrain1'
+# --> 120 seconds for 'datatrain3'
+# --> 289 seconds for 'datatrain2'
+# --> 001 seconds for 'datatrain1'
 
-# 3-4 Check whether the imputation was sueccesfull
+# 3-4 Check whether the imputation was successful
 any(is.na(omicsdata))     # -> should contain NAs
 any(is.na(omicsdata2imp)) # -> should not contain any NAs
                           # --> Seems to be working
