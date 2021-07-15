@@ -106,6 +106,18 @@ ImputeWithTOBMI <- function(omicsdata, blockind) {
   return(omicsdata)
 }
 
+# 1-4 HelpFunction for 1-3
+ImputeTwo <- function(omicsdatacompl, omicsdatamiss) {
+  
+  reorderind <- order(complete.cases(omicsdatamiss))
+  rereorderind <- order(reorderind)
+  
+  imputed <- TOBMIfast(x = omicsdatacompl[reorderind,], y = omicsdatamiss[reorderind,])
+  imputed <- imputed[rereorderind,]
+  
+  return(imputed)
+}
+
 # (2) Prepare the data for the imputation                                    ----
 # 2-1 Load a raw multi-omics DF ('ExampleData.Rda' was created with it & we need
 #     to know which variable belongs to which block for the imputation)
@@ -130,8 +142,8 @@ load("./Data/Example_Data/ExampleData.Rda")
 
 # 3-2 Process the data
 # --1 Extract the response & delete the column in the df
-omicsdata         <- datatrain4
-ytarget           <- datatrain4$ytarget
+omicsdata         <- datatrain3
+ytarget           <- datatrain3$ytarget
 omicsdata$ytarget <- NULL
 
 "
@@ -148,7 +160,12 @@ tic()
 omicsdata2imp <- ImputeWithTOBMI(omicsdata, blockind)
 toc()
 
+# --> 421 seconds for 'datatrain4'
+# --> XXX seconds for 'datatrain3'
+# --> XXX seconds for 'datatrain2'
+# --> XXX seconds for 'datatrain1'
+
 # 3-4 Check whether the imputation was sueccesfull
-any(is.na(omicsdata2))    # -> should contain NAs
+any(is.na(omicsdata))     # -> should contain NAs
 any(is.na(omicsdata2imp)) # -> should not contain any NAs
                           # --> Seems to be working
