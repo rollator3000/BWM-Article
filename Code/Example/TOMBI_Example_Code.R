@@ -106,18 +106,6 @@ ImputeWithTOBMI <- function(omicsdata, blockind) {
   return(omicsdata)
 }
 
-# 1-4 ???
-ImputeTwo <- function(omicsdatacompl, omicsdatamiss) {
-  
-  reorderind <- order(complete.cases(omicsdatamiss))
-  rereorderind <- order(reorderind)
-  
-  imputed <- TOBMIfast(x = omicsdatacompl[reorderind,], y = omicsdatamiss[reorderind,])
-  imputed <- imputed[rereorderind,]
-  
-  return(imputed)
-}
-
 # (2) Prepare the data for the imputation                                    ----
 # 2-1 Load a raw multi-omics DF ('ExampleData.Rda' was created with it & we need
 #     to know which variable belongs to which block for the imputation)
@@ -146,15 +134,18 @@ omicsdata         <- datatrain4
 ytarget           <- datatrain4$ytarget
 omicsdata$ytarget <- NULL
 
+"
+# --> Only relevant when running the imputation on locally!
+# --> Not relevant for Server
+
 # --2 Remove the second & fourth block for a imputation that is locally possible
-#     (for running the imputation on the server this is not relevant)
 omicsdata2 <- omicsdata[,blockind != 2 & blockind != 4]
 blockind2  <- blockind[blockind != 2 & blockind != 4]
-
+"
 # 3-3 Apply the imputation with TOMBI 
 #     (original data & index of blocks for the variables are needed)
 tic()
-omicsdata2imp <- ImputeWithTOBMI(omicsdata2, blockind2)
+omicsdata2imp <- ImputeWithTOBMI(omicsdata, blockind)
 toc()
 
 # 3-4 Check whether the imputation was sueccesfull
