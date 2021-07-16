@@ -60,9 +60,16 @@ Details to the enviroments at the end of the READ-ME.
       - is the response 'TP53' part of the 'mutation' block
       - the amount of features & observations
       - amount of variables with missing values
-    - Collect the amount of features per block for each DF and collect the Info in a DF
-      (resulting DF saved to Docs/DataInfo)
-    - Get the average amount of features & observations over all DFs
+    - Collect the amount of features per block for each DF, get the amount of
+      observations, the fraction of reponse-classes that are positive and collect
+       it all in a DF (resulting DF saved to Docs/DataInfo)
+    - Get the average amount of features, observations and positive classes in the
+      target-var over all DFs
+
+#### [2] 01_Create_BWM_Pattern.R
+    - All files in data/raw are fully observed & do not contain missing values
+    - Define functions to induce the different BWM-Pattern in the raw data 
+    - Based on this d
 
 ## Folder-Structure  
 ```
