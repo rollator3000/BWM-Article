@@ -9,17 +9,19 @@
 Collect the amount of features per block for each DF and collect the Info in a DF,
 then get the average amount of features & observations over all DFs.
 "
-# [0] SetWD, load packages and define fuctions                               ----
+# [0] SetWD, load packages, define fix variables and fuctions                ----
 # 0-1 Set WD
 setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
 setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
 setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
 
-# 0-2 Define fixed variables
+# 0-2 Load packages
+
+# 0-3 Define fixed variables
 # --1 Names of the blocks each DF should contain
 necessary_blocks <- c('clin', 'mirna', 'mutation', 'cnv', 'rna')
 
-# 0-3 Define functions
+# 0-4 Define functions
 # --1 Function to get the columns that contain missing values
 get_cols_w_NAs <- function(df) {
   " Check whether the passed dataframe (df) contains any columns w/ missing values
