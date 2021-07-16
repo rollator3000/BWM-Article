@@ -40,8 +40,8 @@ get_cols_w_NAs <- function(df) {
   }
 }
 
-# [1] Inspect the single data-frames in 'Data/Raw'   & check them            ----
-#     Do they contain all necessary blocks, the reponse variable, ...
+# [1] Inspect the single data-frames in 'Data/Raw' & check them              ----
+#     Do they contain all necessary blocks, the response variable, ...
 # 1-1 Get all file-names in 'Data/Raw'
 all_files <- list.files('./Data/Raw/')
 
@@ -119,7 +119,8 @@ all_res <- data.frame('Data-Set' = character(),
                       'ncol_mirna' = integer(),
                       'ncol_mutation' = integer(),
                       'ncol_cnv' = integer(),
-                      'ncol_rna' = integer())
+                      'ncol_rna' = integer(),
+                      'fraction' = numeric())
 
 # 2-3 Loop over each file in 'all_files' and get infos to them
 for (curr_file in all_files) {
@@ -138,8 +139,12 @@ for (curr_file in all_files) {
   #     only keep the unique value & assign the file name
   c_nrow  <- unique(c_nrow)
   
-  # --4 Add results to 'all_res'
-  all_res[nrow(all_res) + 1,] <- c(curr_file, c_nrow, c_ncol)
+  # --4 Get the fraction of positive classes in 'target_var' (TP53)
+  dist_target       <- prop.table(table(mutation[,"TP53"]))
+  fraction_positive <- round(dist_target[names(dist_target) == 1], 3)
+  
+  # --5 Add results to 'all_res'
+  all_res[nrow(all_res) + 1,] <- c(curr_file, c_nrow, c_ncol, fraction_positive)
 }
 
 # 2-4 Inspect the DF & get the average amount of features per block
@@ -151,6 +156,7 @@ mean(as.numeric(all_res$ncol_mirna))
 mean(as.numeric(all_res$ncol_mutation))
 mean(as.numeric(all_res$ncol_cnv))
 mean(as.numeric(all_res$ncol_rna))
+mean(as.numeric(all_res$fraction))
 
 # 2-5 Save 'all_res' to Docs
 write.csv2(all_res, './Docs/DataInfo/Overview_to_raw_data.csv')
