@@ -45,24 +45,33 @@ load_data <- function(data_path) {
   
   # [1] Load the data and check it
   # 1-1 Load the data 
-  load(data_path)
+  tmp <- new.env()
+  load(file = data_path, envir = tmp)
   
   # 1-2 Check whether it contains six blocks ("clin", "mirna", "mutation", "cnv", "rna")
   if (any(sapply(c("clin", "mirna", "mutation", "cnv", "rna"), 
-                 function(x) !x %in% loaded_dfs))) {
+                 function(x) !x %in% names(tmp)))) {
     stop('"data_path" led to a DF that does not have the six blocks ("clin", "mirna", "mutation", "cnv", "rna")')
   }
   
   # [2] Process the data 
   # 2-1 Extract the target-variable ('TP53' from the 'mutation'-Block)
-  ytarget <- mutation[,"TP53"]
+  ytarget <- tmp$mutation[,"TP53"]
   
-  # 2-2 Merge the blocks to create a single DF & create a block index
+  # 2-2 Assign the various multi-omics blocks to 'block'-variables
+  #     (except for 'Mutation', as we use a feature from it as response)
+  block1 <- tmp$clin
+  block2 <- tmp$cnv
+  block3 <- tmp$mirna
+  block4 <- tmp$rna
+  
+  # 2-3 Merge the blocks to create a single DF & create a block index
   #     (response-variable is added as 'ytarget') to the data.
   #     (except for 'mutation', as we have the response from it)
-  dataset         <- data.frame(cbind(clin, cnv, mirna, rna))
+  dataset         <- data.frame(cbind(block1, block2, block3, block4))
   dataset$ytarget <- ytarget
-  blockind        <- rep(1:4, times = c(ncol(clin), ncol(cnv), ncol(mirna), ncol(rna)))
+  blockind        <- rep(1:4, times = c(ncol(block1), ncol(block2), 
+                                        ncol(block3), ncol(block4)))
   
   print(dim(dataset))
   
