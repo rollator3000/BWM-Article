@@ -69,7 +69,7 @@ Details to the enviroments at the end of the READ-ME.
 #### [2] 01_Create_BWM_Pattern.R
     - All files in data/raw are fully observed & do not contain missing values
     - Define functions to induce the different BWM-Pattern in the raw data 
-    - Based on this d
+    - Based on the resulting data, the various approaches can be evaluated then
 
 ## Folder-Structure  
 ```
@@ -92,7 +92,8 @@ Details to the enviroments at the end of the READ-ME.
 └── code <- Code of the repository
     │
     ├── Example <- Templates & Examples
-    └── 00_Inspect_raw_data.R
+    ├── 00_Inspect_raw_data.R
+    └── 01_Create_BWM_Pattern.R
 ```
 ## Enviroments
 To run the R-Scripts, you need R-Version 4.0.2/ 4.0.3  
