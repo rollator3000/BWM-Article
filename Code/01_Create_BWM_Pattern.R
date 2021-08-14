@@ -16,19 +16,51 @@ library(checkmate)
 # 0-3 Define fix variables
 
 # 0-4 Define functions
-# 0-4-1 Load the data and process it to a single DF
-load_data <- function(data_path) {
-  " Load the raw TCGA-Data and process it. 
+# 0-4-1 Load the multi-omics blocks from 'Data/Raw', store each of them in a list
+#       (w/ corresponding name) and return the list!
+load_data <- function(path) {
+  "Load the files 'path' points to (has to be '.Rda' in 'Data/Raw'), store them 
+   in a list (with corresponding names) and return the list then!
+  "
+  # [0] Check arguments
+  # 0-1 'path' has to be a string & contain '.Rda' & 'Data/Raw'
+  assert_string(path, pattern = 'Data/Raw')
+  assert_string(path, pattern = '.Rda')
+  
+  # [1] Load the data from 'path' & store the omcis-blocks into a list 
+  # 1-1 Create a local environment (-> don't load the variables to the global env)
+  local_env <- new.env()
+  load(file = path, local_env)
+  
+  # 1-2 Check whether 'local_env' contains the six necessary omics-blocks 
+  #     ("clin", "mirna", "mutation", "cnv", "rna")
+  if (any(sapply(c("clin", "mirna", "mutation", "cnv", "rna"), function(x) !x %in% names(local_env)))) {
+    stop('"data_path" led to a DF that does not have the six blocks ("clin", "mirna", "mutation", "cnv", "rna")')
+  }
+  
+  # 1-3 Store the omics-blocks into a list and return it
+  return(
+    list('clin'     = local_env[['clin']],
+         'cnv'      = local_env[['cnv']],
+         'mirna'    = local_env[['mirna']],
+         'rna'      = local_env[['rna']],
+         'mutation' = local_env[['mutation']])
+  )
+}
+
+# 0-4-2 Process the loaded data & merge the various omics-blocks to a single DF
+process_loaded_data <- function(raw_data) {
+  " Process the list of omics-blocks laoded with 'load_data()' & create a single
+    DF from it! The processing includes:
       - extract the response 'TP53' from the mutation block
-      - mutation block is then not relevant any more
-      - merge the blocks 'clin', 'cnv', 'rna' & 'mirna' to a single DF
+      - remove the mutation block (not relevant any more then, as we only neeed
+                                   the response 'TP53' from this block)
+      - merge the remaining blocks 'clin', 'cnv', 'rna' & 'mirna' to a single DF
       - add the response 'TP53' as 'ytarget' to the DF
-    On this data, block-wise missingness will be induced later, such that the 
-    various approaches can be evaluated on it.
-    
+
     Args:
-      > data_path (str): Path to data-set in 'data/raw'. If the argument doesn't 
-                         contain 'data/raw' it will throw an error.
+      > raw_data (list): List filled with 6 data-frames (one for each omics-block).
+                         Must contain 'clin', 'mirna', 'mutation', 'cnv' & 'rna'!
                          
     Return:
     A list filled with:
@@ -40,53 +72,48 @@ load_data <- function(data_path) {
       > 'block_names': A vector with the names of the blocks in the correct order
   "
   # [0] Check Inputs
-  # 0-1 'data_path' must be string and contain 'data/raw'
-  assert_string(data_path, pattern = 'Data/Raw')
-  
-  # [1] Load the data and check it
-  # 1-1 Load the data 
-  tmp <- new.env()
-  load(file = data_path, envir = tmp)
-  
-  # 1-2 Check whether it contains six blocks ("clin", "mirna", "mutation", "cnv", "rna")
-  if (any(sapply(c("clin", "mirna", "mutation", "cnv", "rna"), 
-                 function(x) !x %in% names(tmp)))) {
-    stop('"data_path" led to a DF that does not have the six blocks ("clin", "mirna", "mutation", "cnv", "rna")')
+  # 0-1 'raw_data' must be a list & contain the relevant blocks
+  assert_list(raw_data)
+  if (any(sapply(c("clin", "mirna", "mutation", "cnv", "rna"), function(x) !x %in% names(raw_data)))) {
+    stop('"raw_data" must contain of 6 blocks ("clin", "mirna", "mutation", "cnv", "rna")')
   }
   
-  # [2] Process the data 
-  # 2-1 Extract the target-variable ('TP53' from the 'mutation'-Block)
-  ytarget <- tmp$mutation[,"TP53"]
+  # 0-2 Each element in 'raw_data' must be a dataframe/ matrix
+  if (! all(sapply(raw_data, function(x) class(x) == "data.frame" || class(x) == "matrix"))) {
+    stop("'raw_data' must only contain data.frames/ matrices!")
+  }
   
-  # 2-2 Assign the various multi-omics blocks to 'block'-variables
-  #     (except for 'Mutation', as we use a feature from it as response)
-  block1 <- tmp$clin
-  block2 <- tmp$cnv
-  block3 <- tmp$mirna
-  block4 <- tmp$rna
+  # [1] Process the data 
+  # 1-1 Extract the target-variable ('TP53' from the 'mutation'-Block)
+  ytarget <- raw_data$mutation[,"TP53"]
   
-  # 2-3 Merge the blocks to create a single DF & create a block index
-  #     (response-variable is added as 'ytarget') to the data.
-  #     (except for 'mutation', as we have the response from it)
-  dataset         <- data.frame(cbind(block1, block2, block3, block4))
+  # 1-2 Merge the blocks to create a single DF & create a block index. The 
+  #     response-variable is added as 'ytarget' to the data. The mutation-block 
+  #     is removed as we extracted the response from it!
+  dataset         <- data.frame(cbind(raw_data$clin, raw_data$cnv, raw_data$mirna, 
+                                      raw_data$rna))
   dataset$ytarget <- ytarget
-  blockind        <- rep(1:4, times = c(ncol(block1), ncol(block2), 
-                                        ncol(block3), ncol(block4)))
+  blockind        <- rep(1:4, times = c(ncol(raw_data$clin), ncol(raw_data$cnv), 
+                                        ncol(raw_data$mirna), ncol(raw_data$rna)))
   
-  print(dim(dataset))
-  
-  # [3] Return 'dataset', 'blockind' & 'block_names' in a list
+  # [2] Return 'dataset', 'blockind' & 'block_names' in a list
   return(list('data'        = dataset,
               'block_index' = blockind,
               'block_names' = c('clin', 'cnv', 'mirna', 'rna')))
 }
 
-# [1] Do shit                                                                ----
-# 1-1 Set Arguments
-data_path <- './Data/Raw/BLCA.Rda'
-train_pattern <- '2'
-test_pattern  <- '4'
-seed          <- 1234
+# [1] Test the implementations                                                ----
+# 1-1 Load a raw DF
+data_raw <- load_data('./Data/Raw/BLCA.Rda')
 
-# 1-2 Load the data
-loool <- load(data_path)
+# 1-2 Process it
+data_processed <- process_loaded_data(data_raw)
+
+
+#   --> Get the names of the block & corresponding indexes
+data_processed$block_names
+data_processed$block_index
+
+ #  --> Get the corresponding entrances from the data & the response
+data_processed$data[1:5, which(data_processed$block_index == 1)]
+data_processed$data$ytarget[1:5]
