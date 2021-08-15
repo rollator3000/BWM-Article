@@ -102,6 +102,81 @@ process_loaded_data <- function(raw_data) {
               'block_names' = c('clin', 'cnv', 'mirna', 'rna')))
 }
 
+# 0-4-3 Split the processed data into a test- & train-set
+split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
+  " Split the processed data (from 'process_loaded_data()') into a train- & 
+    test-set. 
+    
+    Args: 
+      > data             (list): List filled with 'data', 'block_index' & 
+                                 'block_names' coming from 'process_loaded_data()'
+      > fraction_train (double): Fraction of observations that shall be used
+                                 for the training-set. 1 - fraction_train equals
+                                 the fraction of the test-set!
+      > seed              (int): Seed for reproducibility
+      
+    Return:
+      > A list containing two further lists (once train, once test). Each of
+        these lists is filled with: 
+        > 'data': A single DF (fully obserbed) made of the four-blocks 'clin', 
+          'cnv', 'mirna' & 'rna' (also in this order), as well as the response
+          variable 'ytarget'.
+        > 'block_index: A vector with the index of which variable belongs to  
+           which block (e.g. [1, 1, 2, 2, 2, 2] - > first 2-variables 1. block, 
+                                                    rest in 2. block)
+        > 'block_names': A vector with the names of the blocks in the correct order
+  "
+  # [0] Check inputs
+  # 0-1 'data' has to be list with the entrances 'data', 'block_index' & 'block_names'
+  assert_list(data, len = 3)
+  if (!all(sapply(names(data), function(x) x %in% c('data', 'block_index', 'block_names')))) {
+    stop("'data' must contain 'data', 'block_index' & 'block_names' as entrances")
+  }
+  
+  # 0-2 'data' has to be data.frame, 'block_index' & 'block_names' must be a vector
+  assert_data_frame(data$data)
+  assert_vector(data$block_index)
+  assert_vector(data$block_names)
+  
+  # 0-3 'block_index'/ 'block_names' must only contain int/ char
+  if (!all(sapply(data$block_index, function(x) is.integer(x)))) {
+    stop("'data$block_index' must only contain integers")
+  }
+  if (!all(sapply(data$block_names, function(x) is.character(x)))) {
+    stop("'data$block_names' must only contain strings")
+  }
+  
+  # 0-4 'fraction_train' must be float in ]0;1[ & 'seed' an integer
+  assert_number(fraction_train, lower = 0, upper = 1)
+  assert_int(seed)
+  
+  # [1] Split the data into test- & train-set 
+  #     (incl all corresponding entrances from 'block_index' & 'block_names')
+  # 1-1 Get the amount of data-points for the train-set
+  amount_train = round(fraction_train * nrow(data$data))
+  
+  # 1-2 Sample 'amount_train' data-points between 1-amount of observations
+  #     & get the row indeces for the test-obs aswell 
+  set.seed(seed)
+  train_obs <- sample(1:nrow(data$data), amount_train)
+  test_obs  <- which(! c(1:nrow(data$data)) %in% train_obs)
+  
+  # 1-3 Split the list and all its entrances to 'train' & 'test'
+  # 1-3-1 TRAIN
+  train_list <- list('data' = data$data[train_obs,],
+                     'block_index' = data$block_index,
+                     'block_names' = data$block_names)
+  # 1-3-2 TEST
+  test_list <- list('data' = data$data[test_obs,],
+                    'block_index' = data$block_index,
+                    'block_names' = data$block_names)
+  
+  
+  # [2] Return the Train- & Test-Set in a list with corresponding entrances
+  return(list('train_set' = train_list,
+              'test_set'  = test_list))
+}
+
 # [1] Test the implementations                                                ----
 # 1-1 Load a raw DF
 data_raw <- load_data('./Data/Raw/BLCA.Rda')
@@ -109,11 +184,14 @@ data_raw <- load_data('./Data/Raw/BLCA.Rda')
 # 1-2 Process it
 data_processed <- process_loaded_data(data_raw)
 
+# 1-3 Split 'data_processed' to Train- & Test-Set
+train_test <- split_processed_data(data_processed, fraction_train = 0.75, seed = 1312)
 
+# --> Next Step: Shuffle the block order of the test- & train-set!
 #   --> Get the names of the block & corresponding indexes
-data_processed$block_names
-data_processed$block_index
+train_test$train_set$block_names
+train_test$train_set$block_index
 
  #  --> Get the corresponding entrances from the data & the response
-data_processed$data[1:5, which(data_processed$block_index == 1)]
-data_processed$data$ytarget[1:5]
+train_test$train_set$data[1:5, which(train_test$train_set$block_index == 1)]
+train_test$train_set$data$ytarget[1:5]
