@@ -178,6 +178,8 @@ split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
 }
 
 # 0-4-4 Shuffle the order of the blocks randomly
+data <- train_test$train_set
+seed <- 1234
 shuffle_block_order <- function(data, seed) {
   "Shuffle the block order of 'data' - created in 'split_processed_data()'.
    The order of all blocks is shuffled, except for the 'clin' block, which
@@ -221,7 +223,7 @@ shuffle_block_order <- function(data, seed) {
   # 1-3 Get the new block_index (according to 'new_order')
   #     (-> so we know which variables in 'data$data' belong to which block)
   # 1-3-1 Start of with the indeces of 'clin', as it is always the first block
-  new_block_order_idx <- c( which(data$block_index == which(data$block_names == 'clin')))
+  new_block_order_idx <- c(which(data$block_index == which(data$block_names == 'clin')))
   
   # 1-3-2 Add the indices of the remaining blocks according to the order in
   #      'new_order' & add them to 'new_block_order_idx'
