@@ -177,7 +177,75 @@ split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
               'test_set'  = test_list))
 }
 
-# [1] Test the implementations                                                ----
+# 0-4-4 Shuffle the order of the blocks randomly
+shuffle_block_order <- function(data, seed) {
+  "Shuffle the block order of 'data' - created in 'split_processed_data()'.
+   The order of all blocks is shuffled, except for the 'clin' block, which
+   will always be the first block. But instead of shuffeling the data, we only shuffle
+   the 'block_index' & 'block_names' (which we need to access the corresponding variables)
+  
+  Args:
+    > data (list): List filled with 'data', 'block_index' & 'block_names' coming
+                   from 'split_processed_data()'
+    > seed  (int): Seed to make the results reproducible
+    
+  Return:
+    > The original 'data' list, but with changed block-order! For that, only
+      entrances 'block_index' & 'block_names' are updated (as these are used
+      to access the variables, hence no need to change the order in the data itself!
+  "
+  # [0] Check Inputs
+  # 0-1 'data' has to be list with the entrances 'data', 'block_index' & 'block_names'
+  assert_list(data, len = 3)
+  if (!all(sapply(names(data), function(x) x %in% c('data', 'block_index', 'block_names')))) {
+    stop("'data' must contain 'data', 'block_index' & 'block_names' as entrances")
+  }
+  
+  # 0-2 'data' has to be data.frame, 'block_index' & 'block_names' must be a vector
+  assert_data_frame(data$data)
+  assert_vector(data$block_index)
+  assert_vector(data$block_names)
+  
+  # 0-3 'seed' has to be an integer
+  assert_int(seed)
+  
+  # [1] Shuffle the order of the blocks
+  # 1-1 Randomly shuffle the order of all blocks except for 'clin'
+  # 1-1-1 Get the blocks we want to shuffle
+  blocks_to_shuffle <- data$block_names[data$block_names != 'clin']
+  
+  # 1-1-2 Randomly shuffle the order of 'blocks_to_shuffle'
+  set.seed(seed)
+  new_order <- sample(blocks_to_shuffle)
+  
+  # 1-3 Get the new block_index (according to 'new_order')
+  #     (-> so we know which variables in 'data$data' belong to which block)
+  # 1-3-1 Start of with the indeces of 'clin', as it is always the first block
+  new_block_order_idx <- c( which(data$block_index == which(data$block_names == 'clin')))
+  
+  # 1-3-2 Add the indices of the remaining blocks according to the order in
+  #      'new_order' & add them to 'new_block_order_idx'
+  for (curr_block in new_order) {
+    
+    # --1 Get the index of the variables from 'curr_block'
+    curr_block_idx <- which(data$block_index == which(data$block_names == curr_block))
+    
+    #--2 Add it to 'new_block_order_idx'
+    new_block_order_idx <- c(new_block_order_idx, curr_block_idx)
+  }
+  
+  # 1-4 Overwrite the 'block_index' & the 'block_names' in data
+  # 1-4-1 Overwrite the 'block_names' in data with 'new_order'
+  data$block_names <-  c('clin', new_order)
+  
+  # 1-4-2 Overwrite the 'block_index' in data with 'new_block_order_idx'
+  data$block_index <- new_block_order_idx
+  
+  # [2] Return the data-set with shuffled 'block_names' & 'block_index'
+  return(data)
+}
+
+# [1] Test the implementations                                               ----
 # 1-1 Load a raw DF
 data_raw <- load_data('./Data/Raw/BLCA.Rda')
 
@@ -186,6 +254,9 @@ data_processed <- process_loaded_data(data_raw)
 
 # 1-3 Split 'data_processed' to Train- & Test-Set
 train_test <- split_processed_data(data_processed, fraction_train = 0.75, seed = 1312)
+
+# 1-4 Shuffle the block-order of test & train
+train_shuffled <- shuffle_block_order(train_test$train_set, seed = 1312)
 
 # --> Next Step: Shuffle the block order of the test- & train-set!
 #   --> Get the names of the block & corresponding indexes
