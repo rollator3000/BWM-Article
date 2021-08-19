@@ -178,8 +178,6 @@ split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
 }
 
 # 0-4-4 Shuffle the order of the blocks randomly
-data <- train_test$train_set
-seed <- 1234
 shuffle_block_order <- function(data, seed) {
   "Shuffle the block order of 'data' - created in 'split_processed_data()'.
    The order of all blocks is shuffled, except for the 'clin' block, which
@@ -194,7 +192,7 @@ shuffle_block_order <- function(data, seed) {
   Return:
     > The original 'data' list, but with changed block-order! For that, only
       entrances 'block_index' & 'block_names' are updated (as these are used
-      to access the variables, hence no need to change the order in the data itself!
+      to access the variables, hence no need to change the order in the data itself!)
   "
   # [0] Check Inputs
   # 0-1 'data' has to be list with the entrances 'data', 'block_index' & 'block_names'
@@ -213,35 +211,32 @@ shuffle_block_order <- function(data, seed) {
   
   # [1] Shuffle the order of the blocks
   # 1-1 Randomly shuffle the order of all blocks except for 'clin'
-  # 1-1-1 Get the blocks we want to shuffle
-  blocks_to_shuffle <- data$block_names[data$block_names != 'clin']
-  
-  # 1-1-2 Randomly shuffle the order of 'blocks_to_shuffle'
+  #     (stays in first place all the time!)
   set.seed(seed)
-  new_order <- sample(blocks_to_shuffle)
+  new_order <- c('clin', sample(data$block_names[data$block_names != 'clin']))
   
-  # 1-3 Get the new block_index (according to 'new_order')
-  #     (-> so we know which variables in 'data$data' belong to which block)
-  # 1-3-1 Start of with the indeces of 'clin', as it is always the first block
-  new_block_order_idx <- c(which(data$block_index == which(data$block_names == 'clin')))
+  # 1-2 Get the new index for the various blocks - according to 'new_order'
+  new_idx <- c()
   
-  # 1-3-2 Add the indices of the remaining blocks according to the order in
-  #      'new_order' & add them to 'new_block_order_idx'
-  for (curr_block in new_order) {
+  for (curr_block in data$block_names) {
     
-    # --1 Get the index of the variables from 'curr_block'
-    curr_block_idx <- which(data$block_index == which(data$block_names == curr_block))
+    # --1 Get the 'block_index' for 'curr_block' in the original data
+    #     (which variables belong to 'curr_block')
+    org_idx <- which(data$block_index == which(data$block_names == curr_block))
     
-    #--2 Add it to 'new_block_order_idx'
-    new_block_order_idx <- c(new_block_order_idx, curr_block_idx)
-  }
+    # --2 Get the position of 'curr_block' in the original 'block_order'
+    new_block_position <- which(new_order == curr_block)
+    
+    # --3 Repeat 'old_position' as often, as curr_block has variables
+    new_idx <- c(new_idx, rep(new_block_position, times = length(org_idx)))
+  } 
   
-  # 1-4 Overwrite the 'block_index' & the 'block_names' in data
-  # 1-4-1 Overwrite the 'block_names' in data with 'new_order'
-  data$block_names <-  c('clin', new_order)
+  # 1-3 Overwrite the 'block_index' & the 'block_names' in data
+  # 1-3-1 Overwrite the 'block_names' in data with 'new_order'
+  data$block_names <- new_order
   
-  # 1-4-2 Overwrite the 'block_index' in data with 'new_block_order_idx'
-  data$block_index <- new_block_order_idx
+  # 1-3-2 Overwrite the 'block_index' in data with 'new_block_order_idx'
+  data$block_index <- new_idx
   
   # [2] Return the data-set with shuffled 'block_names' & 'block_index'
   return(data)
@@ -259,7 +254,34 @@ train_test <- split_processed_data(data_processed, fraction_train = 0.75, seed =
 
 # 1-4 Shuffle the block-order of test & train
 train_shuffled <- shuffle_block_order(train_test$train_set, seed = 1312)
+test_shuffled  <- shuffle_block_order(train_test$test_set, seed = 1312)
 
+
+# --> Compare the old & new order + check whether we can access the right variables
+train_test$train_set$block_names
+train_shuffled$block_names       # --> Block order is shuffled
+
+
+colnames(train_test$train_set$data)[which(train_test$train_set$block_index == which(train_test$train_set$block_names == "clin"))]
+colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_shuffled$block_names == "clin"))]
+
+colnames(train_test$train_set$data)[which(train_test$train_set$block_index == which(train_test$train_set$block_names == "cnv"))]
+colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_shuffled$block_names == "cnv"))]
+
+colnames(train_test$train_set$data)[which(train_test$train_set$block_index == which(train_test$train_set$block_names == "mirna"))]
+colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_shuffled$block_names == "mirna"))]
+
+colnames(train_test$train_set$data)[which(train_test$train_set$block_index == which(train_test$train_set$block_names == "rna"))]
+colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_shuffled$block_names == "rna"))]
+# --> Everything seems to be correct!
+
+
+
+
+
+
+
+# OLD TO PLAY AROUND .------------------------------------------------------------------------------
 # --> Next Step: Shuffle the block order of the test- & train-set!
 #   --> Get the names of the block & corresponding indexes
 train_test$train_set$block_names
