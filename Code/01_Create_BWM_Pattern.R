@@ -242,10 +242,7 @@ shuffle_block_order <- function(data, seed) {
   return(data)
 }
 
-# 0-4-5 Induce block-wise missingness patter 1 for Train
-data    <- train_shuffled
-pattern <- 1
-seed    <- 1312
+# 0-4-5 Induce block-wise missingness pattern to Train
 induce_bwm_train <- function(data, pattern, seed) {
   "Induce the pattern of block-wise missingness into the train-data - 
    totally there are 5 different patterns (1. pattern, doesn't even have bwm)!
@@ -321,7 +318,7 @@ induce_bwm_train <- function(data, pattern, seed) {
     # --4 Add the fold-index to 'data'
     data$fold_index <- folds
     
-    # --4 Return the data with induced BWM
+    # --5 Return the data with induced BWM
     return(data)
   }
   
@@ -347,14 +344,87 @@ induce_bwm_train <- function(data, pattern, seed) {
     block_3_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[3]))]
     block_4_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[4]))]
     
-    # --3 Remove the values of the blocks & folds -according to pattern 2
+    # --3 Remove the values of the blocks & folds -according to pattern 3
     data$data[folds==1, block_4_var] <- NA
     data$data[folds==2, block_3_var] <- NA
     
     # --4 Add the fold-index to 'data'
     data$fold_index <- folds
     
-    # --4 Return the data with induced BWM
+    # --5 Return the data with induced BWM
+    return(data)
+  }
+  
+  # 1-4 Pattern 4 - data is split into 3 folds, whereby each is observed in 
+  #                 'clin' and one additional block 
+  if (pattern == 4) {
+    
+    # --1 Mix the original row order (incl. seed for reproducibility)
+    set.seed(seed)
+    data$data <- data$data[sample(1:nrow(data$data)),]
+    
+    # --2 Assign the observations to one of the two fold
+    # --2-1 Amount of obs. per fold
+    obs_per_fold <- round(nrow(data$data) / 3) 
+    
+    # --2-2 Get fold-index for each observation
+    folds <- rep(1:3, times=c(obs_per_fold,
+                              obs_per_fold,
+                              nrow(data$data) - 2 * obs_per_fold)) 
+    
+    # --3 Get the variables for the blocks
+    block_1_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[1]))]
+    block_2_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[2]))]
+    block_3_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[3]))]
+    block_4_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[4]))]
+    
+    # --3 Remove the values of the blocks & folds -according to pattern 4
+    data$data[folds==1, c(block_3_var, block_4_var)] <- NA
+    data$data[folds==2, c(block_2_var, block_4_var)] <- NA
+    data$data[folds==3, c(block_2_var, block_3_var)] <- NA
+    
+    # --4 Add the fold-index to 'data'
+    data$fold_index <- folds
+    
+    # --5 Return the data with induced BWM
+    return(data)
+  }
+  
+  # 1-5 Pattern 5 - data is split into 8 folds, whereby each is observed
+  #                 in different combination of blocks ('clin' always!)
+  if (pattern == 5) {
+    
+    # --1 Mix the original row order (incl. seed for reproducibility)
+    set.seed(seed)
+    data$data <- data$data[sample(1:nrow(data$data)),]
+    
+    # --2 Assign the observations to one of the two fold
+    # --2-1 Amount of obs. per fold
+    obs_per_fold <- round(nrow(data$data) / 8) 
+    
+    # --2-2 Get fold-index for each observation
+    folds <- rep(1:8, times=c(obs_per_fold, obs_per_fold, obs_per_fold, obs_per_fold, obs_per_fold, 
+                              obs_per_fold, obs_per_fold, nrow(data$data) - 7 * obs_per_fold)) 
+    
+    # --3 Get the variables for the blocks
+    block_1_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[1]))]
+    block_2_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[2]))]
+    block_3_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[3]))]
+    block_4_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[4]))]
+    
+    # --3 Remove the values of the blocks & folds -according to pattern 5
+    data$data[folds==2, block_2_var] <- NA
+    data$data[folds==3, block_3_var] <- NA
+    data$data[folds==4, block_4_var] <- NA
+    data$data[folds==5, c(block_3_var, block_4_var)] <- NA
+    data$data[folds==6, c(block_2_var, block_4_var)] <- NA    
+    data$data[folds==7, c(block_2_var, block_3_var)] <- NA
+    data$data[folds==8, c(block_2_var, block_3_var, block_4_var)] <- NA
+    
+    # --4 Add the fold-index to 'data'
+    data$fold_index <- folds
+    
+    # --5 Return the data with induced BWM
     return(data)
   }
 }
