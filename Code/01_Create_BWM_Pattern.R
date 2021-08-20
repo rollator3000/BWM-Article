@@ -242,6 +242,124 @@ shuffle_block_order <- function(data, seed) {
   return(data)
 }
 
+# 0-4-5 Induce block-wise missingness patter 1 for Train
+data    <- train_shuffled
+pattern <- 1
+seed    <- 1312
+induce_bwm_train <- function(data, pattern, seed) {
+  "Induce the pattern of block-wise missingness into the train-data - 
+   totally there are 5 different patterns (1. pattern, doesn't even have bwm)!
+  
+   Args: 
+    > data   (list): List filled with 'data', 'block_index' & 'block_names' 
+                     coming from 'shuffle_block_order()'
+    > pattern (int): Which pattern of BWM is induced into the data
+                     (must be int in [1-5])
+    > seed    (int): Seed to keep results reproducible
+  
+   Return:
+    > data (list) - 'block_index' & 'block_names' are untouched.
+      The 'data' is induced with block-wise missingness pattern.
+      Additionally add the 'fold_index' to the list - showing
+      which observations belong to which fold.
+  "
+  # [0] Check Inputs
+  # 0-1 'data' has to be list with the entrances 'data', 'block_index' & 'block_names'
+  assert_list(data, len = 3)
+  if (!all(sapply(names(data), function(x) x %in% c('data', 'block_index', 'block_names')))) {
+    stop("'data' must contain 'data', 'block_index' & 'block_names' as entrances")
+  }
+  
+  # 0-2 'data' has to be data.frame, 'block_index' & 'block_names' must be a vector
+  assert_data_frame(data$data)
+  assert_vector(data$block_index)
+  assert_vector(data$block_names)
+  
+  # 0-3 'pattern' has to be a integer in [1;5] & 'seed' an integer
+  assert_int(pattern, lower = 1, upper = 5)
+  assert_int(seed)
+  
+  # [1] Induce block-wise missingness
+  # 1-1 Pattern 1 - all blocks are observed for all observations
+  if (pattern == 1) {
+    
+    # --1 Add the fold-index to 'data'
+    #     (in this pattern all obs. are in fold 1)
+    data$fold_index <- rep(1, times = nrow(data$data))
+    
+    # --2 Return data
+    return(data)
+  }
+  
+  # 1-2 Pattern 2 - data is split into 2 folds, whereby one fold is 
+  #                 observed in 'clin' + 2 blocks & the other fold is 
+  #                 'clin' + 1 observed block
+  if (pattern == 2) {
+    
+    # --1 Mix the original row order (incl. seed for reproducibility)
+    set.seed(seed)
+    data$data <- data$data[sample(1:nrow(data$data)),]
+    
+    # --2 Assign the observations to one of the two fold
+    # --2-1 Amount of obs. per fold
+    obs_per_fold <- round(nrow(data$data) / 2) 
+    
+    # --2-2 Get fold-index for each observation
+    folds <- rep(1:2, times=c(obs_per_fold, 
+                              nrow(data$data) - obs_per_fold)) 
+    
+    # --3 Get the variables for the blocks
+    block_1_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[1]))]
+    block_2_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[2]))]
+    block_3_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[3]))]
+    block_4_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[4]))]
+    
+    # --3 Remove the values of the blocks & folds -according to pattern 2
+    data$data[folds==1, block_3_var]                 <- NA
+    data$data[folds==2, c(block_2_var, block_4_var)] <- NA
+    
+    # --4 Add the fold-index to 'data'
+    data$fold_index <- folds
+    
+    # --4 Return the data with induced BWM
+    return(data)
+  }
+  
+  # 1-3 Pattern 3 - data is split into 2 folds, whereby each fold is 
+  #                 'clin' + 2 blocks
+  if (pattern == 3) {
+    
+    # --1 Mix the original row order (incl. seed for reproducibility)
+    set.seed(seed)
+    data$data <- data$data[sample(1:nrow(data$data)),]
+    
+    # --2 Assign the observations to one of the two fold
+    # --2-1 Amount of obs. per fold
+    obs_per_fold <- round(nrow(data$data) / 2) 
+    
+    # --2-2 Get fold-index for each observation
+    folds <- rep(1:2, times=c(obs_per_fold, 
+                              nrow(data$data) - obs_per_fold)) 
+    
+    # --3 Get the variables for the blocks
+    block_1_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[1]))]
+    block_2_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[2]))]
+    block_3_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[3]))]
+    block_4_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[4]))]
+    
+    # --3 Remove the values of the blocks & folds -according to pattern 2
+    data$data[folds==1, block_4_var] <- NA
+    data$data[folds==2, block_3_var] <- NA
+    
+    # --4 Add the fold-index to 'data'
+    data$fold_index <- folds
+    
+    # --4 Return the data with induced BWM
+    return(data)
+  }
+}
+
+
 # [1] Test the implementations                                               ----
 # 1-1 Load a raw DF
 data_raw <- load_data('./Data/Raw/BLCA.Rda')
@@ -256,11 +374,32 @@ train_test <- split_processed_data(data_processed, fraction_train = 0.75, seed =
 train_shuffled <- shuffle_block_order(train_test$train_set, seed = 1312)
 test_shuffled  <- shuffle_block_order(train_test$test_set, seed = 1312)
 
+# 1-5 Induce BWM-Pattern to Train
+train_bwm <- induce_bwm_train(data = train_shuffled, patter = 2, seed = 1312)
 
+
+# Compare 'train_shuffled' & 'train_bwm'
+train_shuffled$data[c(1, nrow(train_shuffled$data)), 
+                    seq(from = 1, to = ncol(train_shuffled$data), by  = 500)]
+
+train_bwm$data[c(1, nrow(train_bwm$data)), 
+               seq(from = 1, to = ncol(train_bwm$data), by  = 500)]
+# --> Seems to be correct
+
+# Access the observations that are observed in a certain block
+fold_1      <- train_bwm$data[which(train_bwm$fold_index == 1),]
+fold_1_cols <- names(which(colSums(is.na(fold_1)) == 0))
+
+fold_2      <- train_bwm$data[which(train_bwm$fold_index == 2),]
+fold_2_cols <- names(which(colSums(is.na(fold_2)) == 0))
+
+
+
+
+#  TEST THE RESULTS OF THE FUNCTION -----------------------------------------------------------------------------------------------
 # --> Compare the old & new order + check whether we can access the right variables
 train_test$train_set$block_names
-train_shuffled$block_names       # --> Block order is shuffled
-
+train_shuffled$block_names
 
 colnames(train_test$train_set$data)[which(train_test$train_set$block_index == which(train_test$train_set$block_names == "clin"))]
 colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_shuffled$block_names == "clin"))]
