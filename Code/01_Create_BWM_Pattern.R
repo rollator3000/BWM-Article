@@ -413,19 +413,3 @@ colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_sh
 colnames(train_test$train_set$data)[which(train_test$train_set$block_index == which(train_test$train_set$block_names == "rna"))]
 colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_shuffled$block_names == "rna"))]
 # --> Everything seems to be correct!
-
-
-
-
-
-
-
-# OLD TO PLAY AROUND .------------------------------------------------------------------------------
-# --> Next Step: Shuffle the block order of the test- & train-set!
-#   --> Get the names of the block & corresponding indexes
-train_test$train_set$block_names
-train_test$train_set$block_index
-
- #  --> Get the corresponding entrances from the data & the response
-train_test$train_set$data[1:5, which(train_test$train_set$block_index == 1)]
-train_test$train_set$data$ytarget[1:5]
