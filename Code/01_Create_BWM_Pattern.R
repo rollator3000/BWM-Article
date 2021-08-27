@@ -429,6 +429,89 @@ induce_bwm_train <- function(data, pattern, seed) {
   }
 }
 
+# 0-4-6 Induce block-wise missingness patter to Test
+induce_bwm_test <- function(data, pattern) {
+  "Induce the pattern of block-wise missingness into the test-data - 
+   totally there are 4 different patterns (4. pattern, doesn't even have bwm)!
+  
+   Args: 
+    > data   (list): List filled with 'data', 'block_index' & 'block_names' 
+                     coming from 'shuffle_block_order()'
+    > pattern (int): Which pattern of BWM is induced into the data
+                     (must be int in [1-5])
+  
+   Return:
+    > data (list) - 'block_index' & 'block_names' are untouched.
+      The 'data' is induced with block-wise missingness pattern.
+      Additionally add the 'fold_index' to the list - showing
+      which observations belong to which fold.
+  "
+  # [0] Check Inputs
+  # 0-1 'data' has to be list with the entrances 'data', 'block_index' & 'block_names'
+  assert_list(data, len = 3)
+  if (!all(sapply(names(data), function(x) x %in% c('data', 'block_index', 'block_names')))) {
+    stop("'data' must contain 'data', 'block_index' & 'block_names' as entrances")
+  }
+  
+  # 0-2 'data' has to be data.frame, 'block_index' & 'block_names' must be a vector
+  assert_data_frame(data$data)
+  assert_vector(data$block_index)
+  assert_vector(data$block_names)
+  
+  # 0-3 'pattern' has to be a integer in [1;4]
+  assert_int(pattern, lower = 1, upper = 4)
+  
+  # [1] Insert BWM-Pattern 'pattern'
+  # 1-1 Pattern 1 - Only block 1 is observed
+  if (pattern == 1) {
+    
+    # --1 Get the blocks & the corresponding variables that get censored
+    na_blocks <- unique(data$block_index)[2:length(unique(data$block_index))]
+    na_cols   <- which(data$block_index %in% na_blocks)
+    
+    # --2 Set the variables of 'na_cols' to NA
+    data$data[,na_cols] <- NA
+    
+    # --3 Return data
+    return(data)
+  }
+  
+  # 1-2 Pattern 2 - Only block 1 & 2is observed
+  if (pattern == 2) {
+    
+    # --1 Get the blocks & the corresponding variables that get censored
+    na_blocks <- unique(data$block_index)[3:length(unique(data$block_index))]
+    na_cols   <- which(data$block_index %in% na_blocks)
+    
+    # --2 Set the variables of 'na_cols' to NA
+    data$data[,na_cols] <- NA
+    
+    # --3 Return data
+    return(data)
+  }
+  
+  # 1-3 Pattern 3 - Only block 1, 2 & 3 is observed
+  if (pattern == 3) {
+    
+    # --1 Get the blocks & the corresponding variables that get censored
+    na_blocks <- unique(data$block_index)[4:length(unique(data$block_index))]
+    na_cols   <- which(data$block_index %in% na_blocks)
+    
+    # --2 Set the variables of 'na_cols' to NA
+    data$data[,na_cols] <- NA
+    
+    # --3 Return data
+    return(data)
+  }
+  
+  # 1-4 Pattern 4 - all blocks are observed
+  if (pattern == 4) {
+    
+    # --1 Return data
+    return(data)
+  }
+}
+
 
 # [1] Test the implementations                                               ----
 # 1-1 Load a raw DF
@@ -447,23 +530,8 @@ test_shuffled  <- shuffle_block_order(train_test$test_set, seed = 1312)
 # 1-5 Induce BWM-Pattern to Train
 train_bwm <- induce_bwm_train(data = train_shuffled, patter = 2, seed = 1312)
 
-
-# Compare 'train_shuffled' & 'train_bwm'
-train_shuffled$data[c(1, nrow(train_shuffled$data)), 
-                    seq(from = 1, to = ncol(train_shuffled$data), by  = 500)]
-
-train_bwm$data[c(1, nrow(train_bwm$data)), 
-               seq(from = 1, to = ncol(train_bwm$data), by  = 500)]
-# --> Seems to be correct
-
-# Access the observations that are observed in a certain block
-fold_1      <- train_bwm$data[which(train_bwm$fold_index == 1),]
-fold_1_cols <- names(which(colSums(is.na(fold_1)) == 0))
-
-fold_2      <- train_bwm$data[which(train_bwm$fold_index == 2),]
-fold_2_cols <- names(which(colSums(is.na(fold_2)) == 0))
-
-
+# 1-6 Induce BWM-Pattern to Test
+test_bwm <- induce_bwm_test(data = test_shuffled, pattern = 1)
 
 
 #  TEST THE RESULTS OF THE FUNCTION -----------------------------------------------------------------------------------------------
@@ -483,3 +551,20 @@ colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_sh
 colnames(train_test$train_set$data)[which(train_test$train_set$block_index == which(train_test$train_set$block_names == "rna"))]
 colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_shuffled$block_names == "rna"))]
 # --> Everything seems to be correct!
+
+
+
+# Compare 'train_shuffled' & 'train_bwm'
+train_shuffled$data[c(1, nrow(train_shuffled$data)), 
+                    seq(from = 1, to = ncol(train_shuffled$data), by  = 500)]
+
+train_bwm$data[c(1, nrow(train_bwm$data)), 
+               seq(from = 1, to = ncol(train_bwm$data), by  = 500)]
+# --> Seems to be correct
+
+# Access the observations that are observed in a certain block
+fold_1      <- train_bwm$data[which(train_bwm$fold_index == 1),]
+fold_1_cols <- names(which(colSums(is.na(fold_1)) == 0))
+
+fold_2      <- train_bwm$data[which(train_bwm$fold_index == 2),]
+fold_2_cols <- names(which(colSums(is.na(fold_2)) == 0))
