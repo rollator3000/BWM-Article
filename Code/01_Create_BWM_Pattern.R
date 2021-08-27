@@ -512,6 +512,46 @@ induce_bwm_test <- function(data, pattern) {
   }
 }
 
+# 0-4-7 Wrap-Function that combines all of the above functions!
+get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
+                           block_seed = 1234, train_pattern = 1, 
+                           train_pattern_seed = 12, test_pattern = 2) {
+  "Wrap up the functions from 0-4-1 to 0-4-7.
+   Load the data, process it to a single DF, split it to test- & train-set, 
+   shuffle the order of the blocks in test- & train-set & induce BWM into them
+   according to 'train_pattern' & 'test_pattern'
+  
+  Args: 
+    > path               (str): Path to a dataset - must contain 'Data/Raw'
+    > frac_train       (float): Fraction of observations for the train-set (]0;1[)
+    > split_seed         (int): Seed for the split of the data to train & test
+    > block_seed         (int): Seed for the shuffeling of the block-order
+    > train_pattern      (int): Seed for the induction of the pattern for train
+                                (obs. are assigned to different folds!)
+    > train_pattern_seed (int): Pattern to induce into train (1, 2, 3, 4, 5)
+    > test_pattern       (int): Pattern to induce into test (1, 2, 3, 4)
+    
+  Return:
+    > A list with the lists 'Train' & 'Test'. Both of the lists contain the 
+      entrances 'data', 'block_index' & 'block_names'. The 'Train'-List also has
+      a additional entrance 'fold_index' with the assigned fold for each obs.
+  "
+  # [0] Check Inputs
+  # 0-1 'path' must be a string with 'Data/Raw' in it
+  assert_string(path, pattern = 'Data/Raw')
+  
+  # 0-2 'frac_train' must be a float between 0 & 1
+  assert_numeric(frac_train, lower = 0, upper = 1)
+  
+  # 0-3 'split_seed', 'block_seed' & 'train_pattern_seed' must be integers
+  assert_integer(split_seed)
+  assert_integer(block_seed)
+  assert_integer(train_pattern_seed)
+  
+  # 0-4 'train_pattern'/ 'test_pattern' has to be a int in [1-5]/ [1-4]
+  assert_integer(train_pattern, lower = 1, upper = 5)
+  assert_integer(test_pattern, lower = 1, upper = 4)
+}
 
 # [1] Test the implementations                                               ----
 # 1-1 Load a raw DF
@@ -528,7 +568,7 @@ train_shuffled <- shuffle_block_order(train_test$train_set, seed = 1312)
 test_shuffled  <- shuffle_block_order(train_test$test_set, seed = 1312)
 
 # 1-5 Induce BWM-Pattern to Train
-train_bwm <- induce_bwm_train(data = train_shuffled, patter = 2, seed = 1312)
+train_bwm <- induce_bwm_train(data = train_shuffled, pattern = 2, seed = 1312)
 
 # 1-6 Induce BWM-Pattern to Test
 test_bwm <- induce_bwm_test(data = test_shuffled, pattern = 1)
