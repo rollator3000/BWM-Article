@@ -5,10 +5,10 @@
  not be saved in the repository!
 "
 # [0] SetWD, load packages, define fix variables and fuctions                ----
-# 0-1 Set WD
-setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
-setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
-setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
+# 0-1 Set WD (currently out-commented, as we need to load the script)
+# setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
+# setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
+# setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
 
 # 0-2 Load packages
 library(checkmate)
@@ -514,8 +514,9 @@ induce_bwm_test <- function(data, pattern) {
 
 # 0-4-7 Wrap-Function that combines all of the above functions!
 get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
-                           block_seed = 1234, train_pattern = 1, 
-                           train_pattern_seed = 12, test_pattern = 2) {
+                           block_seed_train = 1234, block_seed_test = 1342, 
+                           train_pattern = 1,  train_pattern_seed = 12, 
+                           test_pattern = 2) {
   "Wrap up the functions from 0-4-1 to 0-4-7.
    Load the data, process it to a single DF, split it to test- & train-set, 
    shuffle the order of the blocks in test- & train-set & induce BWM into them
@@ -525,7 +526,8 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
     > path               (str): Path to a dataset - must contain 'Data/Raw'
     > frac_train       (float): Fraction of observations for the train-set (]0;1[)
     > split_seed         (int): Seed for the split of the data to train & test
-    > block_seed         (int): Seed for the shuffeling of the block-order
+    > block_seed_train   (int): Seed for the shuffeling of the block-order in train
+    > block_seed_test    (int): Seed for the shuffeling of the block-order in test
     > train_pattern      (int): Seed for the induction of the pattern for train
                                 (obs. are assigned to different folds!)
     > train_pattern_seed (int): Pattern to induce into train (1, 2, 3, 4, 5)
@@ -543,68 +545,71 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
   # 0-2 'frac_train' must be a float between 0 & 1
   assert_numeric(frac_train, lower = 0, upper = 1)
   
-  # 0-3 'split_seed', 'block_seed' & 'train_pattern_seed' must be integers
-  assert_integer(split_seed)
-  assert_integer(block_seed)
-  assert_integer(train_pattern_seed)
+  # 0-3 'split_seed', 'block_seed_train', 'block_seed_test' & 'train_pattern_seed'
+  #     must be integers
+  assert_int(split_seed)
+  assert_int(block_seed_train)
+  assert_int(block_seed_test)
+  assert_int(train_pattern_seed)
   
   # 0-4 'train_pattern'/ 'test_pattern' has to be a int in [1-5]/ [1-4]
-  assert_integer(train_pattern, lower = 1, upper = 5)
-  assert_integer(test_pattern, lower = 1, upper = 4)
+  assert_int(train_pattern, lower = 1, upper = 5)
+  assert_int(test_pattern, lower = 1, upper = 4)
+  
+  # [1] Load & process the data from 'path' & split it to Test- & Train-set
+  # 1-1 Load the raw data 
+  raw_data <- load_data(path = path)
+  
+  # 1-2 Process 'raw_data'
+  data_processed <- process_loaded_data(raw_data)
+  
+  # 1-3 Split 'data_processed' to Train- & Test-Set
+  train_test <- split_processed_data(data_processed, fraction_train = frac_train, 
+                                     seed = split_seed)
+  
+  # [2] Induce BWM to the Test- & Train-Set
+  # 2-1 Shuffle the block-order of test & train
+  train_shuffled <- shuffle_block_order(train_test$train_set, seed = block_seed_train)
+  test_shuffled  <- shuffle_block_order(train_test$test_set, seed = block_seed_test)
+  
+  # 2-2 Induce the pattern of BWM into the Train- & Test-Set
+  train_bwm <- induce_bwm_train(data = train_shuffled, pattern = train_pattern, 
+                                seed = train_pattern_seed)
+  test_bwm  <- induce_bwm_test(data = test_shuffled, pattern = test_pattern)
+  
+  # [3] Return a list with the two lists 'train_bwm' & 'test_bwm'
+  #     --> based on this data, we can evaluate various approaches
+  return(list('Train' = train_bwm,
+              'Test'  = test_bwm))
 }
 
-# [1] Test the implementations                                               ----
-# 1-1 Load a raw DF
-data_raw <- load_data('./Data/Raw/BLCA.Rda')
+# [1] Run the main function & access the observed blocks etc.                 ----
+"
+# Currently out-commented, as we need to load the function to an other script!
 
-# 1-2 Process it
-data_processed <- process_loaded_data(data_raw)
+# 1-1 Load & process the data, such that we can use it for evaluation of approaches
+train_test_bwm <- get_train_test(path = './Data/Raw/BLCA.Rda', 
+                                 frac_train = 0.75, split_seed = 1312,
+                                 block_seed_train = 1234, block_seed_test = 1342, 
+                                 train_pattern = 2,  train_pattern_seed = 12, 
+                                 test_pattern = 2)
 
-# 1-3 Split 'data_processed' to Train- & Test-Set
-train_test <- split_processed_data(data_processed, fraction_train = 0.75, seed = 1312)
+# 1-2 Acess eveerything we need from 'Train' 
+train_tmp <- train_test_bwm$Train
 
-# 1-4 Shuffle the block-order of test & train
-train_shuffled <- shuffle_block_order(train_test$train_set, seed = 1312)
-test_shuffled  <- shuffle_block_order(train_test$test_set, seed = 1312)
+# --1 Access the observations that are observed in a certain block
+train_tmp$fold_index                               # get all folds
 
-# 1-5 Induce BWM-Pattern to Train
-train_bwm <- induce_bwm_train(data = train_shuffled, pattern = 2, seed = 1312)
+# --1-1 Get all observed columns for a given fold
+fold_1     <- train_tmp$data[which(train_tmp$fold_index == 1),]
+fold1_cols <- names(which(colSums(is.na(fold_1)) == 0))
 
-# 1-6 Induce BWM-Pattern to Test
-test_bwm <- induce_bwm_test(data = test_shuffled, pattern = 1)
+fold_2     <- train_tmp$data[which(train_tmp$fold_index == 2),]
+fold2_cols <- names(which(colSums(is.na(fold_1)) == 0))
 
+# 1-3 Access everything we need from 'Test'
+test_tmp <- train_test_bwm$Test
 
-#  TEST THE RESULTS OF THE FUNCTION -----------------------------------------------------------------------------------------------
-# --> Compare the old & new order + check whether we can access the right variables
-train_test$train_set$block_names
-train_shuffled$block_names
-
-colnames(train_test$train_set$data)[which(train_test$train_set$block_index == which(train_test$train_set$block_names == "clin"))]
-colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_shuffled$block_names == "clin"))]
-
-colnames(train_test$train_set$data)[which(train_test$train_set$block_index == which(train_test$train_set$block_names == "cnv"))]
-colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_shuffled$block_names == "cnv"))]
-
-colnames(train_test$train_set$data)[which(train_test$train_set$block_index == which(train_test$train_set$block_names == "mirna"))]
-colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_shuffled$block_names == "mirna"))]
-
-colnames(train_test$train_set$data)[which(train_test$train_set$block_index == which(train_test$train_set$block_names == "rna"))]
-colnames(train_shuffled$data)[which(train_shuffled$block_index == which(train_shuffled$block_names == "rna"))]
-# --> Everything seems to be correct!
-
-
-
-# Compare 'train_shuffled' & 'train_bwm'
-train_shuffled$data[c(1, nrow(train_shuffled$data)), 
-                    seq(from = 1, to = ncol(train_shuffled$data), by  = 500)]
-
-train_bwm$data[c(1, nrow(train_bwm$data)), 
-               seq(from = 1, to = ncol(train_bwm$data), by  = 500)]
-# --> Seems to be correct
-
-# Access the observations that are observed in a certain block
-fold_1      <- train_bwm$data[which(train_bwm$fold_index == 1),]
-fold_1_cols <- names(which(colSums(is.na(fold_1)) == 0))
-
-fold_2      <- train_bwm$data[which(train_bwm$fold_index == 2),]
-fold_2_cols <- names(which(colSums(is.na(fold_2)) == 0))
+# --1 Acces the observed blocks
+cols_w_na <- which(colSums(is.na(test_tmp$data)) > 0)
+"
