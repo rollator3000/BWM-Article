@@ -4,7 +4,7 @@
  As the files are extremly large, the BWM needs to be induced on the fly and can
  not be saved in the repository!
 "
-# [0] SetWD, load packages, define fix variables and fuctions                ----
+# [0] SetWD, load packages, define fix variables and fuctions                 ----
 # 0-1 Set WD (currently out-commented, as we need to load the script)
 # setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
 # setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
