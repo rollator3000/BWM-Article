@@ -18,6 +18,8 @@ library(checkmate)
 library(randomForestSRC)
 library(parallel)
 library(doParallel)
+library(caret)
+library(pROC)
 
 # 0-3 Define fixed variables
 # 0-3-1 Define amount of usable cores (parallel computing)
@@ -49,7 +51,9 @@ get_predicition <- function(train, test, ntree = NULL, mtry = NULL, min_node_siz
                      - 1 is the default.
                      
     Return:
-      - vector with the predicted class for each observation in 'test'!
+      - List with: > 'pred_classes' = predicted class for each observation in 'test'
+                   > 'pred_prob_pos_class' = predicted probability for a obs. 
+                                             to be in class 1
   "
   # [0] Check Inputs
   # 0-1 'train' & 'test' must be dataframes w/o missing values
@@ -126,10 +130,14 @@ train_set$data <- train_set$data[complete.cases(train_set$data), ]
 preds_test_set <- get_predicition(train = train_set$data, test = test_set$data, 
                                   ntree = NULL, mtry = NULL, min_node_size = NULL)
 
-# 1-3 Analyse the results
-table(preds_test_set$pred_classes, test_set$data$ytarget)
+# 1-3 Calculate the metrics based on the true & predicted labels
+# --1  Confusion Matrix & all corresponding metrics (Acc, F1, Precision, ....)
+matrics_1 <- caret::confusionMatrix(preds_test_set$pred_classes, 
+                                    factor(test_set$data$ytarget, 
+                                           levels = c(0, 1)),
+                                    positive = "1")
+matrics_1$overall; matrics_1$byClass
 
-
-
-
-
+# --2 Calculate the AUC
+auc(factor(test_set$data$ytarget, levels = c(0, 1)), 
+    preds_test_set$pred_prob_pos_class)
