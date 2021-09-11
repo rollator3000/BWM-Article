@@ -141,3 +141,30 @@ matrics_1$overall; matrics_1$byClass
 # --2 Calculate the AUC
 auc(factor(test_set$data$ytarget, levels = c(0, 1)), 
     preds_test_set$pred_prob_pos_class)
+
+# 1-4 Collect the results to a DF
+# --> Must contain the parameter-settings of the 'get_train_test()' function
+# --> Must contain the parameters used for the training of the tree
+# --> Must contain the AUC, aswell as the other standard metrics
+
+# --1 Raw form of the result-df
+data.frame("path"               = character(), 
+           "frac_train"         = character(), 
+           "split_seed"         = numeric(), 
+           "block_seed_train"   = numeric(), 
+           "block_seed_test"    = numeric(), 
+           "train_pattern"      = numeric(), 
+           "train_pattern_seed" = numeric(), 
+           "test_pattern"       = numeric(), 
+           "ntree"              = numeric(), 
+           "mtry"               = numeric(), 
+           "min_node_size"      = numeric(), 
+           "AUC"                = numeric(),
+           "Accuracy"           = numeric(), 
+           "Sensitivity"        = numeric(), 
+           "Specificity"        = numeric(), 
+           "Precision"          = numeric(), 
+           "Recall"             = numeric(), 
+           "F1"                 = numeric(), 
+           "Bal_Accuracy"       = numeric()
+)
