@@ -15,7 +15,7 @@ setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
 
 # 0-2 Load packages
 library(checkmate)
-library(randomForestSRC)
+library(randomForestSRC) # library(ranger)
 library(parallel)
 library(doParallel)
 library(caret)
@@ -30,8 +30,8 @@ registerDoParallel(cores = 2)
 source("./Code/01_Create_BWM_Pattern.R")
 
 # 0-5 Define functions
-# 0-5-1 Get predicitons for the test-set from a RF trained on train-set
-get_predicition <- function(train, test, ntree = NULL, mtry = NULL, min_node_size = NULL) {
+# 0-5-1 Get predictions for the test-set from a RF trained on train-set
+get_predicition <- function(train, test) {
   " Get predictions from a RF-Model for 'test', whereby the RF is trained on 'train'..
     Important: > All obs. in 'test' are fully observed!
                > 'train' only consits of features that are availabe in 'test'
@@ -43,17 +43,12 @@ get_predicition <- function(train, test, ntree = NULL, mtry = NULL, min_node_siz
       - train  (DF): DF that only contains variables that are also availabe for 'test'.
                      Must not contain any NA values! 
       - test   (DF): DF that is completly observed for all its observations
-      - ntree (int): Amount of trees to be fit on 'train' - 300 is the default!
-      - mtry  (int): Amount of split-variables to try, when looking for a split. 
-                     - If it is 'NULL' it is set to sqrt(p) [p = ncol of train]
-      - mi_no (int): Minimum node size - amount of obs. a node must at least 
-                     contain, so the model keeps on trying to split them 
-                     - 1 is the default.
                      
     Return:
       - List with: > 'pred_classes' = predicted class for each observation in 'test'
                    > 'pred_prob_pos_class' = predicted probability for a obs. 
                                              to be in class 1
+                   > settings of the RF for 'mtry', 'min_node_size' & 'ntree'
   "
   # [0] Check Inputs
   # 0-1 'train' & 'test' must be dataframes w/o missing values
@@ -65,14 +60,6 @@ get_predicition <- function(train, test, ntree = NULL, mtry = NULL, min_node_siz
     stop("Train-Set has different features than the Test-Set!")
   }
   
-  # 0-3 'ntree', 'min_node_size' & 'mtry' must be integer > 10 / 5 / 1 if not NULL
-  if (!is.null(ntree)) assert_int(ntree, lower = 10)
-  if (is.null(ntree))  ntree = 300
-  if (!is.null(mtry))  assert_int(mtry, lower = 5)
-  if (is.null(mtry))   mtry = ceiling(sqrt(ncol(train)))
-  if (!is.null(min_node_size)) assert_int(min_node_size, lower = 1)
-  if (is.null(min_node_size))  min_node_size = 1
-  
   # [1] Train a RF & create predicitons for the test-set
   # 1-1 Train a RF on 'train'
   # --1 Convert the response to a factor
@@ -82,89 +69,124 @@ get_predicition <- function(train, test, ntree = NULL, mtry = NULL, min_node_siz
   #     (define response & use remaining variables as features)
   formula_all <- as.formula(paste('ytarget', " ~ ."))
   
-  # --3 Fit the actual RF
-  RF <- rfsrc(formula = formula_all, data = train, 
-              ntree = ntree, mtry = mtry, nodesize = min_node_size, 
-              samptype = "swr", seed = 12345678, var.used = 'all.trees')
+  # --3 Fit the actual RF (only use standard-settings)
+  RF <- rfsrc(formula = formula_all, data = train, samptype = "swr", 
+              seed = 12345678, var.used = 'all.trees')
   
   # 1-2 Get Prediciton on the testset from the RF
   predicitons <- predict(RF, test)
   
   # 1-3 Return the predicted classes & the predicted probabilites for class '1'
-  return(list('pred_classes' = predicitons$class,
-              'pred_prob_pos_class' = predicitons$predicted[,'1']))
+  #     aswell as the settings of the RF
+  return(list('pred_classes'        = predicitons$class,
+              'pred_prob_pos_class' = predicitons$predicted[,'1'],
+              'RF_ntree'            = RF$ntree,
+              'RF_mtry'             = RF$mtry,
+              'RF_min_node_size'    = RF$nodesize))
 }
 
-# [1] Evaluate the approach                                                  ----
-# 1-1 Load & process the data, such that we can use it for evaluation
-# --1 Load the data with the induced BWM
-train_test_bwm <- get_train_test(path = './Data/Raw/BLCA.Rda',  # Path to the data
-                                 frac_train = 0.75,             # Fraction of data used for Training (rest for test)
-                                 split_seed = 1312,             # Seed for the split of the data into test- & train
-                                 block_seed_train = 1234,       # Seed to shuffle the block-order in train
-                                 block_seed_test = 1342,        # Seed to shuffle the block-order in test
-                                 train_pattern = 2,             # Pattern to introduce to train
-                                 train_pattern_seed = 12,       # Seed for the introduction of the BWM into train
-                                 test_pattern = 2)              # Pattern for the test-set
-
-# --2 Extract Train- & Test-Set
-test_set  <- train_test_bwm$Test
-train_set <- train_test_bwm$Train
-
-# --3 Extract the observed features from the test-set
-# --3-1 Get the observed features from the test-set
-obs_test_fea <- names(which(colSums(is.na(test_set$data)) <= 0))
-
-# --3-2 Drop all other features from the test-set (only contains observed features)
-test_set$data <- test_set$data[,obs_test_fea]
-
-# --4 Prepare the training data 
-# --4-1 Remove all blocks from the training-data, that are not availabe for test
-#       (--> only contains features that are available for test)
-train_set$data <- train_set$data[,obs_test_fea]
-
-# --4-2 Remove all observations with missing values
-train_set$data <- train_set$data[complete.cases(train_set$data), ]
-
-# 1-2 Train a RF on the processed train_set & get predicitons for the test-set
-preds_test_set <- get_predicition(train = train_set$data, test = test_set$data, 
-                                  ntree = NULL, mtry = NULL, min_node_size = NULL)
-
-# 1-3 Calculate the metrics based on the true & predicted labels
-# --1  Confusion Matrix & all corresponding metrics (Acc, F1, Precision, ....)
-matrics_1 <- caret::confusionMatrix(preds_test_set$pred_classes, 
-                                    factor(test_set$data$ytarget, 
-                                           levels = c(0, 1)),
-                                    positive = "1")
-matrics_1$overall; matrics_1$byClass
-
-# --2 Calculate the AUC
-auc(factor(test_set$data$ytarget, levels = c(0, 1)), 
-    preds_test_set$pred_prob_pos_class)
-
-# 1-4 Collect the results to a DF
-# --> Must contain the parameter-settings of the 'get_train_test()' function
-# --> Must contain the parameters used for the training of the tree
-# --> Must contain the AUC, aswell as the other standard metrics
-
-# --1 Raw form of the result-df
-data.frame("path"               = character(), 
-           "frac_train"         = character(), 
-           "split_seed"         = numeric(), 
-           "block_seed_train"   = numeric(), 
-           "block_seed_test"    = numeric(), 
-           "train_pattern"      = numeric(), 
-           "train_pattern_seed" = numeric(), 
-           "test_pattern"       = numeric(), 
-           "ntree"              = numeric(), 
-           "mtry"               = numeric(), 
-           "min_node_size"      = numeric(), 
-           "AUC"                = numeric(),
-           "Accuracy"           = numeric(), 
-           "Sensitivity"        = numeric(), 
-           "Specificity"        = numeric(), 
-           "Precision"          = numeric(), 
-           "Recall"             = numeric(), 
-           "F1"                 = numeric(), 
-           "Bal_Accuracy"       = numeric()
-)
+# 0-5-2 Evaluate a RF with the complete-case approach & get its metrics
+path = './Data/Raw/BLCA.Rda'
+frac_train = 0.75
+split_seed = 1312
+block_seed_train = 1234
+block_seed_test = 1342
+train_pattern = 2
+train_pattern_seed = 12
+test_pattern = 2
+eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
+                         block_seed_train = 1234, block_seed_test = 1342, train_pattern = 2,
+                         train_pattern_seed = 12, test_pattern = 2) {
+  "Evaluate the CC-Approach on the data 'path' points to. Use 'frac_train' of this
+   data for the training of a RF (w/ its settings 'ntree', 'mtry' & 'min_node_size')
+   and evaluate it on test-set then. The train- & test-set is induced with a random 
+   pattern of BWM. Finally return a DF with the the AUC & other metrics + all the
+   settings for the evaluation.
+   
+   Args:
+      > path               (str): Path to a dataset - must contain 'Data/Raw'
+      > frac_train       (float): Fraction of observations for the train-set (]0;1[)
+      > split_seed         (int): Seed for the split of the data to train & test
+      > block_seed_train   (int): Seed for the shuffeling of the block-order in train
+      > block_seed_test    (int): Seed for the shuffeling of the block-order in test
+      > train_pattern      (int): Seed for the induction of the pattern for train
+                                  (obs. are assigned to different folds!)
+      > train_pattern_seed (int): Pattern to induce into train (1, 2, 3, 4, 5)
+      > test_pattern       (int): Pattern to induce into test (1, 2, 3, 4)
+   
+   Return:
+      > A DF with the settings of the experiment (path to the data, train pattern, ...)
+        as well as the settings of the RF (ntree, mtry, ...) and the results
+        of the evaluation. 
+  "
+  # [0] Check Inputs
+  #     --> All inputs are checked in 'get_train_test()' & 'get_predicition()'
+  
+  # [1] Load & prepare the data 
+  # 1-1 Load the data from 'path', split it to test- & train & induce block-wise 
+  #     missingness into both of them according to 'train_pattern' & 'test_pattern'
+  train_test_bwm <- get_train_test(path = path,                             # Path to the data
+                                   frac_train = frac_train,                 # Fraction of data used for Training (rest for test)
+                                   split_seed = split_seed,                 # Seed for the split of the data into test- & train
+                                   block_seed_train = block_seed_train,     # Seed to shuffle the block-order in train
+                                   block_seed_test = block_seed_test,       # Seed to shuffle the block-order in test
+                                   train_pattern = train_pattern,           # Pattern to introduce to train
+                                   train_pattern_seed = train_pattern_seed, # Seed for the introduction of the BWM into train
+                                   test_pattern = test_pattern)             # Pattern for the test-set
+  
+  # 1-2 Prepare the test-set
+  # 1-2-1 Get the observed features from the test-set
+  obs_test_fea <- names(which(colSums(is.na(train_test_bwm$Test$data)) <= 0))
+  
+  # 1-2-2 Drop all other features from the test-set (--> only contains observed features)
+  train_test_bwm$Test$data <- train_test_bwm$Test$data[,obs_test_fea]
+  
+  # 1-3 Prepare the training data 
+  # 1-3-1 Remove all blocks from the training-data, that are not availabe for test
+  #       (--> only contains features that are available for test)
+  train_test_bwm$Train$data <- train_test_bwm$Train$data[,obs_test_fea]
+  
+  # 1-3-2 Remove all observations with missing values
+  train_test_bwm$Train$data <- train_test_bwm$Train$data[complete.cases(train_test_bwm$Train$data), ]
+  
+  # [2] Train % evaluate a RF 
+  # 2-1 Get predictions for the test-set from a RF that is fitted with its standard
+  #     settings to the training data 
+  preds_test_set <- get_predicition(train = train_test_bwm$Train$data, 
+                                    test = train_test_bwm$Test$data)
+  
+  # 2-2 Calculate the metrics based on the true & predicted labels
+  # 2-2-1  Confusion Matrix & all corresponding metrics (Acc, F1, Precision, ....)
+  matrics_1 <- caret::confusionMatrix(preds_test_set$pred_classes, 
+                                      factor(test_set$data$ytarget, 
+                                             levels = c(0, 1)),
+                                      positive = "1")
+  
+  # 2-2-2 Calculate the AUC
+  auc(factor(test_set$data$ytarget, levels = c(0, 1)), 
+      preds_test_set$pred_prob_pos_class)
+  
+  # [3] Collect the results & return them in a DF
+  matrics_1$overall; matrics_1$byClass
+  
+  data.frame("path"               = character(), 
+             "frac_train"         = character(), 
+             "split_seed"         = numeric(), 
+             "block_seed_train"   = numeric(), 
+             "block_seed_test"    = numeric(), 
+             "train_pattern"      = numeric(), 
+             "train_pattern_seed" = numeric(), 
+             "test_pattern"       = numeric(), 
+             "ntree"              = numeric(), 
+             "mtry"               = numeric(), 
+             "min_node_size"      = numeric(), 
+             "AUC"                = numeric(),
+             "Accuracy"           = numeric(), 
+             "Sensitivity"        = numeric(), 
+             "Specificity"        = numeric(), 
+             "Precision"          = numeric(), 
+             "Recall"             = numeric(), 
+             "F1"                 = numeric(), 
+             "Bal_Accuracy"       = numeric()
+  )
+}
