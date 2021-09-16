@@ -15,7 +15,7 @@ setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
 
 # 0-2 Load packages
 library(checkmate)
-library(randomForestSRC) # library(ranger)
+library(randomForestSRC)
 library(parallel)
 library(doParallel)
 library(caret)
@@ -86,26 +86,20 @@ get_predicition <- function(train, test) {
 }
 
 # 0-5-2 Evaluate a RF with the complete-case approach & get its metrics
-path = './Data/Raw/BLCA.Rda'
-frac_train = 0.75
-split_seed = 1312
-block_seed_train = 1234
-block_seed_test = 1342
-train_pattern = 2
-train_pattern_seed = 12
-test_pattern = 2
 eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
                          block_seed_train = 1234, block_seed_test = 1342, train_pattern = 2,
                          train_pattern_seed = 12, test_pattern = 2) {
   "Evaluate the CC-Approach on the data 'path' points to. Use 'frac_train' of this
-   data for the training of a RF (w/ its settings 'ntree', 'mtry' & 'min_node_size')
-   and evaluate it on test-set then. The train- & test-set is induced with a random 
-   pattern of BWM. Finally return a DF with the the AUC & other metrics + all the
-   settings for the evaluation.
+   data for the training of a RF (w/ its standard settings 'ntree', 'mtry' &
+   'min_node_size') & evaluate it on test-set then. The train- & test-set is induced
+   with a random  pattern of BWM. Finally return a DF with the the AUC, the 
+   Brier-Score and the two standard metrics Precision, Recall, Sensitivity, 
+   Specificity, F-1 Score & Accuracy + all the settings for the evaluation 
+   (e.g. path, seeds, train_pattern, settings for RF, ...).
    
    Args:
       > path               (str): Path to a dataset - must contain 'Data/Raw'
-      > frac_train       (float): Fraction of observations for the train-set (]0;1[)
+      > frac_train       (float): Fraction of observations for the train-set - ]0;1[
       > split_seed         (int): Seed for the split of the data to train & test
       > block_seed_train   (int): Seed for the shuffeling of the block-order in train
       > block_seed_test    (int): Seed for the shuffeling of the block-order in test
@@ -117,10 +111,11 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
    Return:
       > A DF with the settings of the experiment (path to the data, train pattern, ...)
         as well as the settings of the RF (ntree, mtry, ...) and the results
-        of the evaluation. 
+        of the evaluation (AUC; Brier-Score; Accuracy)
   "
   # [0] Check Inputs
-  #     --> All inputs are checked in 'get_train_test()' & 'get_predicition()'
+  #     --> All arguments are checked in the functions 'get_train_test()' &
+  #         'get_predicition()' 
   
   # [1] Load & prepare the data 
   # 1-1 Load the data from 'path', split it to test- & train & induce block-wise 
@@ -135,58 +130,109 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                                    test_pattern = test_pattern)             # Pattern for the test-set
   
   # 1-2 Prepare the test-set
-  # 1-2-1 Get the observed features from the test-set
+  # 1-2-1 Get the observed features from the test-set (contain no NAs)
   obs_test_fea <- names(which(colSums(is.na(train_test_bwm$Test$data)) <= 0))
   
-  # 1-2-2 Drop all other features from the test-set (--> only contains observed features)
+  # 1-2-2 Drop all features from the test-set with at least one NA  
+  #       --> only contains fully observed features then
   train_test_bwm$Test$data <- train_test_bwm$Test$data[,obs_test_fea]
   
-  # 1-3 Prepare the training data 
-  # 1-3-1 Remove all blocks from the training-data, that are not availabe for test
-  #       (--> only contains features that are available for test)
+  # 1-3 Prepare the train-set
+  # 1-3-1 Remove all blocks from the train-set, that are not available for test
+  #       --> only contains features then that are available for test
   train_test_bwm$Train$data <- train_test_bwm$Train$data[,obs_test_fea]
   
-  # 1-3-2 Remove all observations with missing values
+  # 1-3-2 Remove all observations from the train-set with missing values
   train_test_bwm$Train$data <- train_test_bwm$Train$data[complete.cases(train_test_bwm$Train$data), ]
   
-  # [2] Train % evaluate a RF 
-  # 2-1 Get predictions for the test-set from a RF that is fitted with its standard
-  #     settings to the training data 
+  # [2] Train & evaluate a RF (with its standard-settings) 
+  # 2-1 Get predictions for the test-set from a RF that is fitted with its 
+  #     standard settings to the processed train-set 
   preds_test_set <- get_predicition(train = train_test_bwm$Train$data, 
                                     test = train_test_bwm$Test$data)
   
   # 2-2 Calculate the metrics based on the true & predicted labels
   # 2-2-1  Confusion Matrix & all corresponding metrics (Acc, F1, Precision, ....)
-  matrics_1 <- caret::confusionMatrix(preds_test_set$pred_classes, 
-                                      factor(test_set$data$ytarget, 
+  metrics_1 <- caret::confusionMatrix(preds_test_set$pred_classes, 
+                                      factor(train_test_bwm$Test$data$ytarget, 
                                              levels = c(0, 1)),
                                       positive = "1")
   
   # 2-2-2 Calculate the AUC
-  auc(factor(test_set$data$ytarget, levels = c(0, 1)), 
-      preds_test_set$pred_prob_pos_class)
+  AUC <- auc(factor(train_test_bwm$Test$data$ytarget, levels = c(0, 1)), 
+             preds_test_set$pred_prob_pos_class)
   
+  # 2-2-3 Calculate the Brier-Score
+  brier <- mean((preds_test_set$pred_prob_pos_class - train_test_bwm$Test$data$ytarget)  ^ 2)
+
   # [3] Collect the results & return them in a DF
-  matrics_1$overall; matrics_1$byClass
-  
-  data.frame("path"               = character(), 
-             "frac_train"         = character(), 
-             "split_seed"         = numeric(), 
-             "block_seed_train"   = numeric(), 
-             "block_seed_test"    = numeric(), 
-             "train_pattern"      = numeric(), 
-             "train_pattern_seed" = numeric(), 
-             "test_pattern"       = numeric(), 
-             "ntree"              = numeric(), 
-             "mtry"               = numeric(), 
-             "min_node_size"      = numeric(), 
-             "AUC"                = numeric(),
-             "Accuracy"           = numeric(), 
-             "Sensitivity"        = numeric(), 
-             "Specificity"        = numeric(), 
-             "Precision"          = numeric(), 
-             "Recall"             = numeric(), 
-             "F1"                 = numeric(), 
-             "Bal_Accuracy"       = numeric()
-  )
+  res_df <-  data.frame("path"               = path, 
+                        "frac_train"         = frac_train, 
+                        "split_seed"         = split_seed, 
+                        "block_seed_train"   = block_seed_train, 
+                        "block_seed_test"    = block_seed_test, 
+                        "train_pattern"      = train_pattern, 
+                        "train_pattern_seed" = train_pattern_seed, 
+                        "test_pattern"       = test_pattern, 
+                        "ntree"              = preds_test_set$RF_ntree, 
+                        "mtry"               = preds_test_set$RF_mtry, 
+                        "min_node_size"      = preds_test_set$RF_min_node_size, 
+                        "AUC"                = AUC,
+                        "Accuracy"           = metrics_1$overall['Accuracy'], 
+                        "Sensitivity"        = metrics_1$byClass['Sensitivity'], 
+                        "Specificity"        = metrics_1$byClass['Specificity'], 
+                        "Precision"          = metrics_1$byClass['Precision'], 
+                        "Recall"             = metrics_1$byClass['Recall'], 
+                        "F1"                 = metrics_1$byClass['F1'], 
+                        "BrierScore"         = brier)
 }
+
+# [1] Run the experiments                                                    ----
+# 1-1 Define an empty DF to store the results of the evaluation
+CC_res <- data.frame()
+
+# 1-2 Define a list with the paths to the availabe DFs
+df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
+
+# 1-3 Loop over all the possible settings for the evaluation of the CC-Approach
+#     each setting is evaluated 5-times!
+for (curr_path in df_paths) {
+  for (curr_repetition in c(1, 2, 3, 4, 5)) {
+    for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
+      for (curr_test_pattern in c(1, 2, 3, 4)) {
+        
+        # Set the seed for the 'split'
+        curr_split_seed = 12345678 + curr_repetition
+        
+        # Set the seed for the shuffeling of the blocks (test & train)
+        curr_block_seed_train = 1234567 + curr_repetition
+        curr_block_seed_test  = 123456  + curr_repetition
+        
+        # Set the seed for the train_pattern (shuffeling of observations)
+        curr_train_pattern_seed = 12345 + curr_repetition
+        
+        # Run the evaluation with current settings
+        curr_res <- eval_cc_appr(path = curr_path, 
+                                 frac_train = 0.75, 
+                                 split_seed = curr_split_seed,
+                                 block_seed_train = curr_block_seed_train, 
+                                 block_seed_test = curr_block_seed_test, 
+                                 train_pattern = curr_train_pattern,
+                                 train_pattern_seed = curr_train_pattern_seed, 
+                                 test_pattern = curr_test_pattern)
+        
+        # Add the curr_repetition to 'curr_res', before adding it to 'CC_res'
+        curr_res$repetition <- curr_repetition
+        
+        # Add the results of the setting to 'CC_res'
+        CC_res <- rbind(CC_res, curr_res)
+      }
+    }
+  }
+}
+
+# 1-4 Add the approach to the DF
+CC_res$Approach <- 'CompleteCase'
+
+# 1-5 Save the resulting DF to 'docs'
+write.csv(CC_res, path = "./Docs/Evaluation_Results/CC_Approach.csv")
