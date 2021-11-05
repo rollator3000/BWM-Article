@@ -534,9 +534,11 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
     > test_pattern       (int): Pattern to induce into test (1, 2, 3, 4)
     
   Return:
-    > A list with the lists 'Train' & 'Test'. Both of the lists contain the 
-      entrances 'data', 'block_index' & 'block_names'. The 'Train'-List also has
-      a additional entrance 'fold_index' with the assigned fold for each obs.
+    > A list with the lists 'Train' & 'Test'. Both of the lists contain the entrances:
+       - 'data' (w/ BWM according to 'train_pattern' / 'test_pattern')
+       - 'block_index' (index of the blocks after the order of the blocks has been shuffled)
+       - 'block_names' (names of the blocks after they have been shuffled)
+       - 'Train' also has a additional entrance 'fold_index' with the assigned fold for each obs.
   "
   # [0] Check Inputs
   # 0-1 'path' must be a string with 'Data/Raw' in it
@@ -560,15 +562,17 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
   # 1-1 Load the raw data 
   raw_data <- load_data(path = path)
   
-  # 1-2 Process 'raw_data'
+  # 1-2 Process 'raw_data' to a single DF with infos to block names & their index
+  #     'mutation'-block is only used to extract the response 'TP53' (now 'ytarget'), rest removed
   data_processed <- process_loaded_data(raw_data)
   
-  # 1-3 Split 'data_processed' to Train- & Test-Set
-  train_test <- split_processed_data(data_processed, fraction_train = frac_train, 
-                                     seed = split_seed)
+  # 1-3 Split 'data_processed' to Train- & Test-Set (only split up the obs. in test & train, 
+  #                                                  rest is untouched)
+  train_test <- split_processed_data(data_processed, fraction_train = frac_train, seed = split_seed)
   
   # [2] Induce BWM to the Test- & Train-Set
-  # 2-1 Shuffle the block-order of test & train
+  # 2-1 Shuffle the block-order of test & train separately. Actual data stays untouched, only the 
+  #     block-order & -index is shuffled as we access the data via the block-index/-names
   train_shuffled <- shuffle_block_order(train_test$train_set, seed = block_seed_train)
   test_shuffled  <- shuffle_block_order(train_test$test_set, seed = block_seed_test)
   
