@@ -5,7 +5,7 @@
   > Then remove all observations from the (remaining) training data that contain 
     missing values
   > Train a RF on the resulting DF & use it then to create predicitons for the 
-    test-set (structure of test-data has to be known before trainng a RF)
+    test-set (structure of test-data has to be known before training a RF)
 "
 # [0] SetWD, load packages, define fix variables and fuctions                ----
 # 0-1 Set WD (currently out-commented, as we need to load the script)
@@ -93,9 +93,9 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
    data for the training of a RF (w/ its standard settings 'ntree', 'mtry' &
    'min_node_size') & evaluate it on test-set then. The train- & test-set is induced
    with a random  pattern of BWM. Finally return a DF with the the AUC, the 
-   Brier-Score and the two standard metrics Precision, Recall, Sensitivity, 
-   Specificity, F-1 Score & Accuracy + all the settings for the evaluation 
-   (e.g. path, seeds, train_pattern, settings for RF, ...).
+   Brier-Score and the standard metrics Precision, Recall, Sensitivity, Specificity,
+   F-1 Score & Accuracy + all the settings for the evaluation 
+   (e.g. path, seeds, train_pattern, settings for RF, block_order, ...).
    
    Args:
       > path               (str): Path to a dataset - must contain 'Data/Raw'
@@ -171,6 +171,8 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                         "split_seed"         = split_seed, 
                         "block_seed_train"   = block_seed_train, 
                         "block_seed_test"    = block_seed_test, 
+                        "block_order_test"   = paste(train_test_bwm$Test$block_names, collapse = ' - '),
+                        "block_order_train"  = paste(train_test_bwm$Train$block_names, collapse = ' - '),
                         "train_pattern"      = train_pattern, 
                         "train_pattern_seed" = train_pattern_seed, 
                         "test_pattern"       = test_pattern, 
@@ -185,6 +187,7 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                         "Recall"             = metrics_1$byClass['Recall'], 
                         "F1"                 = metrics_1$byClass['F1'], 
                         "BrierScore"         = brier)
+  return(res_df)
 }
 
 # [1] Run the experiments                                                    ----
@@ -197,9 +200,9 @@ df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
 # 1-3 Loop over all the possible settings for the evaluation of the CC-Approach
 #     each setting is evaluated 5-times!
 for (curr_path in df_paths) {
-  for (curr_repetition in c(1, 2, 3, 4, 5)) {
-    for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
-      for (curr_test_pattern in c(1, 2, 3, 4)) {
+  for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
+    for (curr_test_pattern in c(1, 2, 3, 4)) {
+      for (curr_repetition in c(1, 2, 3, 4, 5)) {
         
         # Set the seed for the 'split'
         curr_split_seed = 12345678 + curr_repetition
