@@ -72,7 +72,8 @@ Details to the enviroments at the end of the READ-ME.
     - Based on the resulting data, the various approaches can be evaluated then
 
 #### [3] 02_Complete_Case_Approach.R
-    - Evaluate the Complete-Case approach on data with BWM
+    - Evaluate the Complete-Case approach on the data with BWM
+    - Results are stored in 'Docs/Evaluation_Results/CC_Approach'
 
 ## Folder-Structure  
 ```
