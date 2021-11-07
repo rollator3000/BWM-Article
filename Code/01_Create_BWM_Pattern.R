@@ -1,5 +1,5 @@
-"Script to define functions to split a file in data/raw into a train- and test-set
- (3:1) and induce the various BWM-Pattern into the train- and test-set.
+"Script to define functions to split a file in 'data/raw' into a train- and test-set
+ (3:1), and then induce the various BWM-Pattern into the train- and test-set.
  
  As the files are extremly large, the BWM needs to be induced on the fly and can
  not be saved in the repository!
@@ -39,13 +39,11 @@ load_data <- function(path) {
   }
   
   # 1-3 Store the omics-blocks into a list and return it
-  return(
-    list('clin'     = local_env[['clin']],
-         'cnv'      = local_env[['cnv']],
-         'mirna'    = local_env[['mirna']],
-         'rna'      = local_env[['rna']],
-         'mutation' = local_env[['mutation']])
-  )
+  return(list('clin'     = local_env[['clin']],
+              'cnv'      = local_env[['cnv']],
+              'mirna'    = local_env[['mirna']],
+              'rna'      = local_env[['rna']],
+              'mutation' = local_env[['mutation']]))
 }
 
 # 0-4-2 Process the loaded data & merge the various omics-blocks to a single DF
@@ -59,17 +57,17 @@ process_loaded_data <- function(raw_data) {
       - add the response 'TP53' as 'ytarget' to the DF
 
     Args:
-      > raw_data (list): List filled with 6 data-frames (one for each omics-block).
+      > raw_data (list): List filled with 5 data-frames (one for each omics-block).
                          Must contain 'clin', 'mirna', 'mutation', 'cnv' & 'rna'!
                          
     Return:
     A list filled with:
-      > 'data': A single DF (fully obserbed) made of the four-blocks 'clin', 'cnv', 
+      > 'data': A single DF (fully observed) made of the four-blocks 'clin', 'cnv', 
         'mirna' & 'rna' (also in this order), as well as the response variable
         'ytarget'.
       > 'block_index: A vector with the index of which variable belongs to which 
          block (e.g. [1, 1, 2, 2, 2, 2] - > first 2-variables 1. block, rest in 2. block)
-      > 'block_names': A vector with the names of the blocks in the correct order
+      > 'block_names': A vector with the names of the blockand their order
   "
   # [0] Check Inputs
   # 0-1 'raw_data' must be a list & contain the relevant blocks
@@ -514,9 +512,8 @@ induce_bwm_test <- function(data, pattern) {
 
 # 0-4-7 Wrap-Function that combines all of the above functions!
 get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
-                           block_seed_train = 1234, block_seed_test = 1342, 
-                           train_pattern = 1,  train_pattern_seed = 12, 
-                           test_pattern = 2) {
+                           block_seed = 1312, train_pattern = 1, 
+                           train_pattern_seed = 1234, test_pattern = 2) {
   "Wrap up the functions from 0-4-1 to 0-4-7.
    Load the data, process it to a single DF, split it to test- & train-set, 
    shuffle the order of the blocks in test- & train-set & induce BWM into them
@@ -526,11 +523,10 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
     > path               (str): Path to a dataset - must contain 'Data/Raw'
     > frac_train       (float): Fraction of observations for the train-set (]0;1[)
     > split_seed         (int): Seed for the split of the data to train & test
-    > block_seed_train   (int): Seed for the shuffeling of the block-order in train
-    > block_seed_test    (int): Seed for the shuffeling of the block-order in test
-    > train_pattern      (int): Seed for the induction of the pattern for train
+    > block_seed         (int): Seed for the shuffeling of the block-order in train & test (same order)
+    > train_pattern      (int): Pattern to induce into train (1, 2, 3, 4, 5)
+    > train_pattern_seed (int): Seed for the induction of the pattern for train
                                 (obs. are assigned to different folds!)
-    > train_pattern_seed (int): Pattern to induce into train (1, 2, 3, 4, 5)
     > test_pattern       (int): Pattern to induce into test (1, 2, 3, 4)
     
   Return:
@@ -571,10 +567,10 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
   train_test <- split_processed_data(data_processed, fraction_train = frac_train, seed = split_seed)
   
   # [2] Induce BWM to the Test- & Train-Set
-  # 2-1 Shuffle the block-order of test & train separately. Actual data stays untouched, only the 
+  # 2-1 Shuffle the block-order of test & train (same order). Actual data stays untouched, only the 
   #     block-order & -index is shuffled as we access the data via the block-index/-names
-  train_shuffled <- shuffle_block_order(train_test$train_set, seed = block_seed_train)
-  test_shuffled  <- shuffle_block_order(train_test$test_set, seed = block_seed_test)
+  train_shuffled <- shuffle_block_order(train_test$train_set, seed = block_seed)
+  test_shuffled  <- shuffle_block_order(train_test$test_set, seed = block_seed)
   
   # 2-2 Induce the pattern of BWM into the Train- & Test-Set
   train_bwm <- induce_bwm_train(data = train_shuffled, pattern = train_pattern, 
