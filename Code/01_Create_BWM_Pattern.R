@@ -546,8 +546,7 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
   # 0-3 'split_seed', 'block_seed_train', 'block_seed_test' & 'train_pattern_seed'
   #     must be integers
   assert_int(split_seed)
-  assert_int(block_seed_train)
-  assert_int(block_seed_test)
+  assert_int(block_seed)
   assert_int(train_pattern_seed)
   
   # 0-4 'train_pattern'/ 'test_pattern' has to be a int in [1-5]/ [1-4]
