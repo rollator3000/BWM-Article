@@ -87,8 +87,8 @@ get_predicition <- function(train, test) {
 
 # 0-5-2 Evaluate a RF with the complete-case approach & get its metrics
 eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
-                         block_seed_train = 1234, block_seed_test = 1342, train_pattern = 2,
-                         train_pattern_seed = 12, test_pattern = 2) {
+                         block_seed = 1234, train_pattern = 2, train_pattern_seed = 12, 
+                         test_pattern = 2) {
   "Evaluate the CC-Approach on the data 'path' points to. Use 'frac_train' of this
    data for the training of a RF (w/ its standard settings 'ntree', 'mtry' &
    'min_node_size') & evaluate it on test-set then. The train- & test-set is induced
@@ -101,8 +101,7 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
       > path               (str): Path to a dataset - must contain 'Data/Raw'
       > frac_train       (float): Fraction of observations for the train-set - ]0;1[
       > split_seed         (int): Seed for the split of the data to train & test
-      > block_seed_train   (int): Seed for the shuffeling of the block-order in train
-      > block_seed_test    (int): Seed for the shuffeling of the block-order in test
+      > block_seed         (int): Seed for the shuffeling of the block-order (in train & test)
       > train_pattern      (int): Seed for the induction of the pattern for train
                                   (obs. are assigned to different folds!)
       > train_pattern_seed (int): Pattern to induce into train (1, 2, 3, 4, 5)
@@ -123,8 +122,7 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   train_test_bwm <- get_train_test(path = path,                             # Path to the data
                                    frac_train = frac_train,                 # Fraction of data used for Training (rest for test)
                                    split_seed = split_seed,                 # Seed for the split of the data into test- & train
-                                   block_seed_train = block_seed_train,     # Seed to shuffle the block-order in train
-                                   block_seed_test = block_seed_test,       # Seed to shuffle the block-order in test
+                                   block_seed = block_seed,                 # Seed to shuffle the block-order in train & test
                                    train_pattern = train_pattern,           # Pattern to introduce to train
                                    train_pattern_seed = train_pattern_seed, # Seed for the introduction of the BWM into train
                                    test_pattern = test_pattern)             # Pattern for the test-set
@@ -169,10 +167,8 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   res_df <-  data.frame("path"               = path, 
                         "frac_train"         = frac_train, 
                         "split_seed"         = split_seed, 
-                        "block_seed_train"   = block_seed_train, 
-                        "block_seed_test"    = block_seed_test, 
-                        "block_order_test"   = paste(train_test_bwm$Test$block_names, collapse = ' - '),
-                        "block_order_train"  = paste(train_test_bwm$Train$block_names, collapse = ' - '),
+                        "block_seed"         = block_seed, 
+                        "block_order"        = paste(train_test_bwm$Test$block_names, collapse = ' - '),
                         "train_pattern"      = train_pattern, 
                         "train_pattern_seed" = train_pattern_seed, 
                         "test_pattern"       = test_pattern, 
@@ -207,9 +203,8 @@ for (curr_path in df_paths) {
         # Set the seed for the 'split'
         curr_split_seed = 12345678 + curr_repetition
         
-        # Set the seed for the shuffeling of the blocks (test & train)
-        curr_block_seed_train = 1234567 + curr_repetition
-        curr_block_seed_test  = 123456  + curr_repetition
+        # Set the seed for the shuffling of the blocks
+        curr_block_seed = 1234567 + curr_repetition
         
         # Set the seed for the train_pattern (shuffeling of observations)
         curr_train_pattern_seed = 12345 + curr_repetition
@@ -218,8 +213,7 @@ for (curr_path in df_paths) {
         curr_res <- eval_cc_appr(path = curr_path, 
                                  frac_train = 0.75, 
                                  split_seed = curr_split_seed,
-                                 block_seed_train = curr_block_seed_train, 
-                                 block_seed_test = curr_block_seed_test, 
+                                 block_seed = curr_block_seed,  
                                  train_pattern = curr_train_pattern,
                                  train_pattern_seed = curr_train_pattern_seed, 
                                  test_pattern = curr_test_pattern)
