@@ -30,6 +30,8 @@ registerDoParallel(cores = 2)
 source("./Code/01_Create_BWM_Pattern.R")
 
 # 0-5 Define functions
+
+
 # 0-5-1 Get predictions for the test-set from a RF trained on train-set
 get_predicition <- function(train, test) {
   " Get predictions from a RF-Model for 'test', whereby the RF is trained on 'train'..
@@ -86,16 +88,22 @@ get_predicition <- function(train, test) {
 }
 
 # 0-5-2 Evaluate a RF with the complete-case approach & get its metrics
+path = './Data/Raw/BLCA.Rda'
+frac_train = 0.75
+split_seed = 1312
+block_seed = 1234
+train_pattern = 2
+train_pattern_seed = 12
+test_pattern = 2
 eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
                          block_seed = 1234, train_pattern = 2, train_pattern_seed = 12, 
                          test_pattern = 2) {
   "Evaluate the CC-Approach on the data 'path' points to. Use 'frac_train' of this
    data for the training of a RF (w/ its standard settings 'ntree', 'mtry' &
    'min_node_size') & evaluate it on test-set then. The train- & test-set is induced
-   with a random  pattern of BWM. Finally return a DF with the the AUC, the 
-   Brier-Score and the standard metrics Precision, Recall, Sensitivity, Specificity,
-   F-1 Score & Accuracy + all the settings for the evaluation 
-   (e.g. path, seeds, train_pattern, settings for RF, block_order, ...).
+   with a pattern of BWM. Finally return a DF with the the AUC, the Brier-Score and 
+   the standard metrics Precision, Recall, Sensitivity, Specificity, F-1 Score & Accuracy +
+   all the settings for the evaluation (e.g. path, seeds, train_pattern, settings for RF, block_order, ...).
    
    Args:
       > path               (str): Path to a dataset - must contain 'Data/Raw'
@@ -114,7 +122,7 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   "
   # [0] Check Inputs
   #     --> All arguments are checked in the functions 'get_train_test()' &
-  #         'get_predicition()' 
+  #         'get_predicition()' that werde loaded from 'Code/01_Create_BWM_Pattern.R'
   
   # [1] Load & prepare the data 
   # 1-1 Load the data from 'path', split it to test- & train & induce block-wise 
