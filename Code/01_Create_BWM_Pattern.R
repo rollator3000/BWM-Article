@@ -67,7 +67,7 @@ process_loaded_data <- function(raw_data) {
         'ytarget'.
       > 'block_index: A vector with the index of which variable belongs to which 
          block (e.g. [1, 1, 2, 2, 2, 2] - > first 2-variables 1. block, rest in 2. block)
-      > 'block_names': A vector with the names of the blockand their order
+      > 'block_names': A vector with the names of the blocks and their order
   "
   # [0] Check Inputs
   # 0-1 'raw_data' must be a list & contain the relevant blocks
@@ -100,14 +100,79 @@ process_loaded_data <- function(raw_data) {
               'block_names' = c('clin', 'cnv', 'mirna', 'rna')))
 }
 
-# 0-4-3 Split the processed data into a test- & train-set
+# 0-4-3 Shuffle the block-order of the processed_loaded_data 
+shuffle_block_order <- function(data, seed) {
+  "Shuffle the block order of 'data' - created in 'process_loaded_data()'.
+ The order of all blocks is shuffled, except for the 'clin' block, which
+ will always be the first block. But instead of shuffeling the data, we only shuffle
+ the 'block_index' & 'block_names' (which we need to access the corresponding variables)
+
+Args:
+  > data (list): List filled with 'data', 'block_index' & 'block_names' coming
+                 from 'process_loaded_data()'
+  > seed  (int): Seed to make the results reproducible
+  
+Return:
+  > The original 'data' list, but with changed block-order! For that, only
+    entrances 'block_index' & 'block_names' are updated (as these are used
+    to access the variables, hence no need to change the order in the data itself!)
+"
+  # [0] Check Inputs
+  # 0-1 'data' has to be list with the entrances 'data', 'block_index' & 'block_names'
+  assert_list(data, len = 3)
+  if (!all(sapply(names(data), function(x) x %in% c('data', 'block_index', 'block_names')))) {
+    stop("'data' must contain 'data', 'block_index' & 'block_names' as entrances")
+  }
+  
+  # 0-2 'data' has to be data.frame, 'block_index' & 'block_names' must be a vector
+  assert_data_frame(data$data)
+  assert_vector(data$block_index)
+  assert_vector(data$block_names)
+  
+  # 0-3 'seed' has to be an integer
+  assert_int(seed)
+  
+  # [1] Shuffle the order of the blocks
+  # 1-1 Randomly shuffle the order of all blocks except for 'clin'
+  #     (stays in first place all the time!)
+  set.seed(seed)
+  new_order <- c('clin', sample(data$block_names[data$block_names != 'clin']))
+  
+  # 1-2 Get the new index for the various block-variables - according to 'new_order'
+  new_idx <- c()
+  
+  for (curr_block in data$block_names) {
+    
+    # --1 Get the 'block_index' for 'curr_block' in the original data
+    #     (which variables belong to 'curr_block')
+    org_idx <- which(data$block_index == which(data$block_names == curr_block))
+    
+    # --2 Get the position of 'curr_block' in the original 'block_order'
+    new_block_position <- which(new_order == curr_block)
+    
+    # --3 Repeat 'old_position' as often, as curr_block has variables
+    new_idx <- c(new_idx, rep(new_block_position, times = length(org_idx)))
+  } 
+  
+  # 1-3 Overwrite the 'block_index' & the 'block_names' in data
+  # 1-3-1 Overwrite the 'block_names' in data with 'new_order'
+  data$block_names <- new_order
+  
+  # 1-3-2 Overwrite the 'block_index' in data with 'new_block_order_idx'
+  data$block_index <- new_idx
+  
+  # [2] Return the data-set with shuffled 'block_names' & 'block_index'
+  return(data)
+}
+
+# 0-4-4 Split the shuffled & processed data into a test- & train-set
 split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
-  " Split the processed data (from 'process_loaded_data()') into a train- & 
+  " Split the processed data (from 'shuffle_block_order()') into a train- & 
     test-set. 
     
     Args: 
       > data             (list): List filled with 'data', 'block_index' & 
-                                 'block_names' coming from 'process_loaded_data()'
+                                 'block_names' coming from 'shuffle_block_order()'
       > fraction_train (double): Fraction of observations that shall be used
                                  for the training-set. 1 - fraction_train equals
                                  the fraction of the test-set!
@@ -175,71 +240,6 @@ split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
               'test_set'  = test_list))
 }
 
-# 0-4-4 Shuffle the order of the blocks randomly
-shuffle_block_order <- function(data, seed) {
-  "Shuffle the block order of 'data' - created in 'split_processed_data()'.
-   The order of all blocks is shuffled, except for the 'clin' block, which
-   will always be the first block. But instead of shuffeling the data, we only shuffle
-   the 'block_index' & 'block_names' (which we need to access the corresponding variables)
-  
-  Args:
-    > data (list): List filled with 'data', 'block_index' & 'block_names' coming
-                   from 'split_processed_data()'
-    > seed  (int): Seed to make the results reproducible
-    
-  Return:
-    > The original 'data' list, but with changed block-order! For that, only
-      entrances 'block_index' & 'block_names' are updated (as these are used
-      to access the variables, hence no need to change the order in the data itself!)
-  "
-  # [0] Check Inputs
-  # 0-1 'data' has to be list with the entrances 'data', 'block_index' & 'block_names'
-  assert_list(data, len = 3)
-  if (!all(sapply(names(data), function(x) x %in% c('data', 'block_index', 'block_names')))) {
-    stop("'data' must contain 'data', 'block_index' & 'block_names' as entrances")
-  }
-  
-  # 0-2 'data' has to be data.frame, 'block_index' & 'block_names' must be a vector
-  assert_data_frame(data$data)
-  assert_vector(data$block_index)
-  assert_vector(data$block_names)
-  
-  # 0-3 'seed' has to be an integer
-  assert_int(seed)
-  
-  # [1] Shuffle the order of the blocks
-  # 1-1 Randomly shuffle the order of all blocks except for 'clin'
-  #     (stays in first place all the time!)
-  set.seed(seed)
-  new_order <- c('clin', sample(data$block_names[data$block_names != 'clin']))
-  
-  # 1-2 Get the new index for the various blocks - according to 'new_order'
-  new_idx <- c()
-  
-  for (curr_block in data$block_names) {
-    
-    # --1 Get the 'block_index' for 'curr_block' in the original data
-    #     (which variables belong to 'curr_block')
-    org_idx <- which(data$block_index == which(data$block_names == curr_block))
-    
-    # --2 Get the position of 'curr_block' in the original 'block_order'
-    new_block_position <- which(new_order == curr_block)
-    
-    # --3 Repeat 'old_position' as often, as curr_block has variables
-    new_idx <- c(new_idx, rep(new_block_position, times = length(org_idx)))
-  } 
-  
-  # 1-3 Overwrite the 'block_index' & the 'block_names' in data
-  # 1-3-1 Overwrite the 'block_names' in data with 'new_order'
-  data$block_names <- new_order
-  
-  # 1-3-2 Overwrite the 'block_index' in data with 'new_block_order_idx'
-  data$block_index <- new_idx
-  
-  # [2] Return the data-set with shuffled 'block_names' & 'block_index'
-  return(data)
-}
-
 # 0-4-5 Induce block-wise missingness pattern to Train
 induce_bwm_train <- function(data, pattern, seed) {
   "Induce the pattern of block-wise missingness into the train-data - 
@@ -300,10 +300,9 @@ induce_bwm_train <- function(data, pattern, seed) {
     obs_per_fold <- round(nrow(data$data) / 2) 
     
     # --2-2 Get fold-index for each observation
-    folds <- rep(1:2, times=c(obs_per_fold, 
-                              nrow(data$data) - obs_per_fold)) 
+    folds <- rep(1:2, times=c(obs_per_fold, nrow(data$data) - obs_per_fold)) 
     
-    # --3 Get the variables for the blocks
+    # --3 Get the variables for the blocks (according to their order in data$block_names)
     block_1_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[1]))]
     block_2_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[2]))]
     block_3_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[3]))]
@@ -514,7 +513,7 @@ induce_bwm_test <- function(data, pattern) {
 get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
                            block_seed = 1312, train_pattern = 1, 
                            train_pattern_seed = 1234, test_pattern = 2) {
-  "Wrap up the functions from 0-4-1 to 0-4-7.
+  "Wrap up the functions from 0-4-1 to 0-4-6.
    Load the data, process it to a single DF, split it to test- & train-set, 
    shuffle the order of the blocks in test- & train-set & induce BWM into them
    according to 'train_pattern' & 'test_pattern'
@@ -561,20 +560,16 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
   #     'mutation'-block is only used to extract the response 'TP53' (now 'ytarget'), rest removed
   data_processed <- process_loaded_data(raw_data)
   
-  # 1-3 Split 'data_processed' to Train- & Test-Set (only split up the obs. in test & train, 
-  #                                                  rest is untouched)
-  train_test <- split_processed_data(data_processed, fraction_train = frac_train, seed = split_seed)
+  # 1-3 Shuffle the block-order of the processed data
+  data_shuffled <- shuffle_block_order(data = data_processed, seed = block_seed)
   
-  # [2] Induce BWM to the Test- & Train-Set
-  # 2-1 Shuffle the block-order of test & train (same order). Actual data stays untouched, only the 
-  #     block-order & -index is shuffled as we access the data via the block-index/-names
-  train_shuffled <- shuffle_block_order(train_test$train_set, seed = block_seed)
-  test_shuffled  <- shuffle_block_order(train_test$test_set, seed = block_seed)
+  # 1-4 Split 'data_shuffled' to Train- & Test-Set
+  train_test <- split_processed_data(data_shuffled, fraction_train = frac_train, seed = split_seed)
   
-  # 2-2 Induce the pattern of BWM into the Train- & Test-Set
-  train_bwm <- induce_bwm_train(data = train_shuffled, pattern = train_pattern, 
+  # 1-5 Induce BWM-Pattern to train
+  train_bwm <- induce_bwm_train(data = train_test$train_set, pattern = train_pattern, 
                                 seed = train_pattern_seed)
-  test_bwm  <- induce_bwm_test(data = test_shuffled, pattern = test_pattern)
+  test_bwm  <- induce_bwm_test(data = train_test$test_set, pattern = test_pattern)
   
   # [3] Return a list with the two lists 'train_bwm' & 'test_bwm'
   #     --> based on this data, we can evaluate various approaches
@@ -583,15 +578,12 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
 }
 
 # [1] Run the main function & access the observed blocks etc.                 ----
-"
 # Currently out-commented, as we need to load the function to an other script!
-
+"
 # 1-1 Load & process the data, such that we can use it for evaluation of approaches
-train_test_bwm <- get_train_test(path = './Data/Raw/BLCA.Rda', 
-                                 frac_train = 0.75, split_seed = 1312,
-                                 block_seed_train = 1234, block_seed_test = 1342, 
-                                 train_pattern = 2,  train_pattern_seed = 12, 
-                                 test_pattern = 2)
+train_test_bwm <- get_train_test(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, 
+                                 split_seed = 1312, block_seed = 1234, train_pattern = 2,
+                                 train_pattern_seed = 12, test_pattern = 2)
 
 # 1-2 Acess eveerything we need from 'Train' 
 train_tmp <- train_test_bwm$Train
@@ -604,7 +596,7 @@ fold_1     <- train_tmp$data[which(train_tmp$fold_index == 1),]
 fold1_cols <- names(which(colSums(is.na(fold_1)) == 0))
 
 fold_2     <- train_tmp$data[which(train_tmp$fold_index == 2),]
-fold2_cols <- names(which(colSums(is.na(fold_1)) == 0))
+fold2_cols <- names(which(colSums(is.na(fold_2)) == 0))
 
 # 1-3 Access everything we need from 'Test'
 test_tmp <- train_test_bwm$Test
