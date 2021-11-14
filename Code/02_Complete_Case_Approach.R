@@ -30,8 +30,6 @@ registerDoParallel(cores = 2)
 source("./Code/01_Create_BWM_Pattern.R")
 
 # 0-5 Define functions
-
-
 # 0-5-1 Get predictions for the test-set from a RF trained on train-set
 get_predicition <- function(train, test) {
   " Get predictions from a RF-Model for 'test', whereby the RF is trained on 'train'..
@@ -57,12 +55,16 @@ get_predicition <- function(train, test) {
   assert_data_frame(train, any.missing = FALSE)
   assert_data_frame(test, min.rows = 1, any.missing = FALSE)
   
-  # 0-2 'train' must not contain any colnames not avaible in 'test'
+  # 0-2 'train' must not contain any colnames not avaible in 'test' & vic versa
   if (!all((colnames(train) %in% colnames(test)))) {
     stop("Train-Set has different features than the Test-Set!")
   }
   
-  # [1] Train a RF & create predicitons for the test-set
+  if (!all((colnames(test) %in% colnames(train)))) {
+    stop("Test-Set has different features than the Train-Set!")
+  }
+  
+  # [1] Train a RF & create predictions for the test-set
   # 1-1 Train a RF on 'train'
   # --1 Convert the response to a factor
   train[,'ytarget'] <- as.factor(train[,'ytarget'])
@@ -88,13 +90,6 @@ get_predicition <- function(train, test) {
 }
 
 # 0-5-2 Evaluate a RF with the complete-case approach & get its metrics
-path = './Data/Raw/BLCA.Rda'
-frac_train = 0.75
-split_seed = 1312
-block_seed = 1234
-train_pattern = 2
-train_pattern_seed = 12
-test_pattern = 2
 eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
                          block_seed = 1234, train_pattern = 2, train_pattern_seed = 12, 
                          test_pattern = 2) {
@@ -144,12 +139,14 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   train_test_bwm$Test$data <- train_test_bwm$Test$data[,obs_test_fea]
   
   # 1-3 Prepare the train-set
-  # 1-3-1 Remove all blocks from the train-set, that are not available for test
+  # 1-3-1 Remove all variables from the train-set, that are not available for test
   #       --> only contains features then that are available for test
   train_test_bwm$Train$data <- train_test_bwm$Train$data[,obs_test_fea]
   
   # 1-3-2 Remove all observations from the train-set with missing values
   train_test_bwm$Train$data <- train_test_bwm$Train$data[complete.cases(train_test_bwm$Train$data), ]
+  
+  # --> Test- & Train-Set consist of the same columns & all obs. are fully observed in it 
   
   # [2] Train & evaluate a RF (with its standard-settings) 
   # 2-1 Get predictions for the test-set from a RF that is fitted with its 
@@ -165,8 +162,8 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                                       positive = "1")
   
   # 2-2-2 Calculate the AUC
-  AUC <- auc(factor(train_test_bwm$Test$data$ytarget, levels = c(0, 1)), 
-             preds_test_set$pred_prob_pos_class)
+  AUC <- pROC::auc(factor(train_test_bwm$Test$data$ytarget, levels = c(0, 1)), 
+                   preds_test_set$pred_prob_pos_class, quiet = T)
   
   # 2-2-3 Calculate the Brier-Score
   brier <- mean((preds_test_set$pred_prob_pos_class - train_test_bwm$Test$data$ytarget)  ^ 2)
@@ -195,8 +192,12 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
 }
 
 # [1] Run the experiments                                                    ----
-# 1-1 Define an empty DF to store the results of the evaluation
-CC_res <- data.frame()
+# 1-1 If already existent, load the DF with the results of the CC-Approach so far
+if (file.exists('./Docs/Evaluation_Results/CC_Approach/CC_Eval.csv')) {
+  CC_res <- read.csv('./Docs/Evaluation_Results/CC_Approach/')
+} else {
+  CC_res <- data.frame()
+}
 
 # 1-2 Define a list with the paths to the availabe DFs
 df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
@@ -228,16 +229,13 @@ for (curr_path in df_paths) {
         
         # Add the curr_repetition to 'curr_res', before adding it to 'CC_res'
         curr_res$repetition <- curr_repetition
+        curr_res$approach   <- 'CompleteCase'
         
-        # Add the results of the setting to 'CC_res'
+        # Add the results of the setting to 'CC_res' & save it
         CC_res <- rbind(CC_res, curr_res)
+        write.csv(CC_res, './Docs/Evaluation_Results/CC_Approach/CC_Eval.csv')
       }
     }
   }
 }
 
-# 1-4 Add the approach to the DF
-CC_res$Approach <- 'CompleteCase'
-
-# 1-5 Save the resulting DF to 'docs'
-write.csv(CC_res, path = "./Docs/Evaluation_Results/CC_Approach.csv")
