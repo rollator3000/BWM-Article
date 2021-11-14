@@ -234,7 +234,6 @@ split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
                     'block_index' = data$block_index,
                     'block_names' = data$block_names)
   
-  
   # [2] Return the Train- & Test-Set in a list with corresponding entrances
   return(list('train_set' = train_list,
               'test_set'  = test_list))
@@ -302,11 +301,11 @@ induce_bwm_train <- function(data, pattern, seed) {
     # --2-2 Get fold-index for each observation
     folds <- rep(1:2, times=c(obs_per_fold, nrow(data$data) - obs_per_fold)) 
     
-    # --3 Get the variables for the blocks (according to their order in data$block_names)
-    block_1_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[1]))]
-    block_2_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[2]))]
-    block_3_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[3]))]
-    block_4_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[4]))]
+    # --3 Get the variables for the blocks (according to their order in data$block_names / block_index)
+    block_1_var <- colnames(data$data)[data$block_index == 1]
+    block_2_var <- colnames(data$data)[data$block_index == 2]
+    block_3_var <- colnames(data$data)[data$block_index == 3]
+    block_4_var <- colnames(data$data)[data$block_index == 4]
     
     # --3 Remove the values of the blocks & folds -according to pattern 2
     data$data[folds==1, block_3_var]                 <- NA
@@ -336,10 +335,10 @@ induce_bwm_train <- function(data, pattern, seed) {
                               nrow(data$data) - obs_per_fold)) 
     
     # --3 Get the variables for the blocks
-    block_1_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[1]))]
-    block_2_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[2]))]
-    block_3_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[3]))]
-    block_4_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[4]))]
+    block_1_var <- colnames(data$data)[data$block_index == 1]
+    block_2_var <- colnames(data$data)[data$block_index == 2]
+    block_3_var <- colnames(data$data)[data$block_index == 3]
+    block_4_var <- colnames(data$data)[data$block_index == 4]
     
     # --3 Remove the values of the blocks & folds -according to pattern 3
     data$data[folds==1, block_4_var] <- NA
@@ -370,10 +369,10 @@ induce_bwm_train <- function(data, pattern, seed) {
                               nrow(data$data) - 2 * obs_per_fold)) 
     
     # --3 Get the variables for the blocks
-    block_1_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[1]))]
-    block_2_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[2]))]
-    block_3_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[3]))]
-    block_4_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[4]))]
+    block_1_var <- colnames(data$data)[data$block_index == 1]
+    block_2_var <- colnames(data$data)[data$block_index == 2]
+    block_3_var <- colnames(data$data)[data$block_index == 3]
+    block_4_var <- colnames(data$data)[data$block_index == 4]
     
     # --3 Remove the values of the blocks & folds -according to pattern 4
     data$data[folds==1, c(block_3_var, block_4_var)] <- NA
@@ -404,10 +403,10 @@ induce_bwm_train <- function(data, pattern, seed) {
                               obs_per_fold, obs_per_fold, nrow(data$data) - 7 * obs_per_fold)) 
     
     # --3 Get the variables for the blocks
-    block_1_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[1]))]
-    block_2_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[2]))]
-    block_3_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[3]))]
-    block_4_var <- colnames(data$data)[which(data$block_index == which(data$block_names == data$block_names[4]))]
+    block_1_var <- colnames(data$data)[data$block_index == 1]
+    block_2_var <- colnames(data$data)[data$block_index == 2]
+    block_3_var <- colnames(data$data)[data$block_index == 3]
+    block_4_var <- colnames(data$data)[data$block_index == 4]
     
     # --3 Remove the values of the blocks & folds -according to pattern 5
     data$data[folds==2, block_2_var] <- NA
@@ -463,7 +462,7 @@ induce_bwm_test <- function(data, pattern) {
   if (pattern == 1) {
     
     # --1 Get the blocks & the corresponding variables that get censored
-    na_blocks <- unique(data$block_index)[2:length(unique(data$block_index))]
+    na_blocks <- unique(data$block_index)[which(unique(data$block_index) >= 2)]
     na_cols   <- which(data$block_index %in% na_blocks)
     
     # --2 Set the variables of 'na_cols' to NA
@@ -477,7 +476,7 @@ induce_bwm_test <- function(data, pattern) {
   if (pattern == 2) {
     
     # --1 Get the blocks & the corresponding variables that get censored
-    na_blocks <- unique(data$block_index)[3:length(unique(data$block_index))]
+    na_blocks <- unique(data$block_index)[which(unique(data$block_index) >= 3)]
     na_cols   <- which(data$block_index %in% na_blocks)
     
     # --2 Set the variables of 'na_cols' to NA
@@ -491,7 +490,7 @@ induce_bwm_test <- function(data, pattern) {
   if (pattern == 3) {
     
     # --1 Get the blocks & the corresponding variables that get censored
-    na_blocks <- unique(data$block_index)[4:length(unique(data$block_index))]
+    na_blocks <- unique(data$block_index)[which(unique(data$block_index) >= 4)]
     na_cols   <- which(data$block_index %in% na_blocks)
     
     # --2 Set the variables of 'na_cols' to NA
@@ -592,15 +591,25 @@ train_tmp <- train_test_bwm$Train
 train_tmp$fold_index                               # get all folds
 
 # --1-1 Get all observed columns for a given fold
+# --> Fold-1 (w/ pattern 2) was observed in the blocks 1, 2 & 4
+train_tmp$block_names             # (clin, mirna, & cnv)
 fold_1     <- train_tmp$data[which(train_tmp$fold_index == 1),]
 fold1_cols <- names(which(colSums(is.na(fold_1)) == 0))
+length(fold1_cols)
 
+# --> Fold-2 (w/ pattern 2) was observed in the blocks 1 & 3
+train_tmp$block_names             # (clin, rna)
 fold_2     <- train_tmp$data[which(train_tmp$fold_index == 2),]
 fold2_cols <- names(which(colSums(is.na(fold_2)) == 0))
+length(fold2_cols)
 
 # 1-3 Access everything we need from 'Test'
 test_tmp <- train_test_bwm$Test
 
+# Test (w/ pattern 2) only consits of the first two blocks
+test_tmp$block_names  # (clin & mirna)
+
 # --1 Acces the observed blocks
-cols_w_na <- which(colSums(is.na(test_tmp$data)) > 0)
+cols_wo_na <- which(colSums(is.na(test_tmp$data)) == 0)
+length(cols_wo_na)
 "
