@@ -68,12 +68,12 @@ Details to the enviroments at the end of the READ-ME.
 
 #### [2] 01_Create_BWM_Pattern.R
     - All files in data/raw are fully observed & do not contain missing values
-    - Define functions to induce the different BWM-Pattern in the raw data 
-    - Based on the resulting data, the various approaches can be evaluated then
+    - Define functions to split a DF into Test & Train-Set & induce the different BWM-Pattern in the sets then 
+    - Based on the resulting data, the various approaches can be evaluated
 
 #### [3] 02_Complete_Case_Approach.R
-    - Evaluate the Complete-Case approach on the data with BWM
-    - Results are stored in 'Docs/Evaluation_Results/CC_Approach'
+    - Evaluate the Complete-Case approach on the data with induced BWM (both Test- & Train-Set)
+    - Results of the evaluation are stored in 'Docs/Evaluation_Results/CC_Approach'
 
 ## Folder-Structure  
 ```
@@ -102,9 +102,3 @@ Details to the enviroments at the end of the READ-ME.
 ```
 ## Enviroments
 To run the R-Scripts, you need R-Version 4.0.2/ 4.0.3  
-
-Run the PY-Scripts from the correct Conda-Environments!  
-Create the enviroment manually or install it via:  
-```
-conda env create -f .\envs\XYZ.yml
-```  
