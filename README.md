@@ -62,13 +62,14 @@ Details to the enviroments at the end of the READ-ME.
       - amount of variables with missing values
     - Collect the amount of features per block for each DF, get the amount of
       observations, the fraction of reponse-classes that are positive and collect
-       it all in a DF (resulting DF saved to Docs/DataInfo)
+      it all in a DF (resulting DF saved to Docs/DataInfo)
     - Get the average amount of features, observations and positive classes in the
       target-var over all DFs
 
 #### [2] 01_Create_BWM_Pattern.R
     - All files in data/raw are fully observed & do not contain missing values
-    - Define functions to split a DF into Test & Train-Set & induce the different BWM-Pattern in the sets then 
+    - Define functions to split a DF into Test & Train-Set & induce the different
+      BWM-Pattern in the sets then 
     - Based on the resulting data, the various approaches can be evaluated
 
 #### [3] 02_Complete_Case_Approach.R
@@ -87,9 +88,10 @@ Details to the enviroments at the end of the READ-ME.
 │  
 ├── Docs <- Sources, Results and everything else documenting the repository  
 │   │  
-│   ├─── Article_Versions <- Different Versions of the article (shall be published in the end)
-│   ├─── DataInfo         <- Overview to amount of rows & features per block for each DF in Data/Raw
-│   └─── PhenomeImpute    <- Package to use the R-Function 'PhenomeImpute'
+│   ├─── Article_Versions   <- Different Versions of the article (shall be published in the end)
+│   ├─── Evaluation_Results <- Results of the evaluation for all approaches
+│   ├─── DataInfo           <- Overview to amount of rows & features per block for each DF in Data/Raw
+│   └─── PhenomeImpute      <- Package to use the R-Function 'PhenomeImpute'
 │  
 ├── envs <- the various enviroments of the project
 │
@@ -100,5 +102,3 @@ Details to the enviroments at the end of the READ-ME.
     ├── 01_Create_BWM_Pattern.R
     └── 02_Complete_Case_Approach.R
 ```
-## Enviroments
-To run the R-Scripts, you need R-Version 4.0.2/ 4.0.3  
