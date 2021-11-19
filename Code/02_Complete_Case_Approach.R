@@ -24,7 +24,7 @@ library(pROC)
 # 0-3 Define fixed variables
 # 0-3-1 Define amount of usable cores (parallel computing)
 detectCores()
-registerDoParallel(cores = 2)
+registerDoParallel(cores = 20)
 
 # 0-4 Load functions from 'code/01_Create_BWM_Pattern"
 source("./Code/01_Create_BWM_Pattern.R")
@@ -151,8 +151,35 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   # --> Test- & Train-Set consist of the same columns & all obs. are fully observed in it 
   
   # [2] Train & evaluate a RF (with its standard-settings) 
-  # 2-1 Get predictions for the test-set from a RF that is fitted with its 
-  #     standard settings to the processed train-set 
+  # 2-1 Get predictions for the test-set
+  # 2-1-1 If there is no obs. in the train-set set return the settings, with all
+  #     metrics set to '---'
+  if (nrow(train_test_bwm$Train$data) <= 0) {
+    return(data.frame("path"               = path, 
+                      "frac_train"         = frac_train, 
+                      "split_seed"         = split_seed, 
+                      "block_seed_train"   = block_seed_train,
+                      "block_seed_test"    = block_seed_test, 
+                      "block_order_train_for_BWM" = paste(train_test_bwm$Train$block_names, collapse = ' - '),
+                      "block_order_test_for_BWM"  = paste(train_test_bwm$Test$block_names, collapse = ' - '),
+                      "train_pattern"      = train_pattern, 
+                      "train_pattern_seed" = train_pattern_seed, 
+                      "test_pattern"       = test_pattern, 
+                      "ntree"              = '---', 
+                      "mtry"               = '---', 
+                      "min_node_size"      = '---', 
+                      "AUC"                = '---',
+                      "Accuracy"           = '---', 
+                      "Sensitivity"        = '---', 
+                      "Specificity"        = '---', 
+                      "Precision"          = '---', 
+                      "Recall"             = '---', 
+                      "F1"                 = '---', 
+                      "BrierScore"         = '---'))
+  } 
+  
+  # 2-1-2 Get predictions for the test-set from a RF that is fitted with its 
+  #       standard settings to the processed train-set (that has at least 1 obs.) 
   preds_test_set <- get_predicition(train = train_test_bwm$Train$data, 
                                     test = train_test_bwm$Test$data)
   
@@ -169,7 +196,7 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   
   # 2-2-3 Calculate the Brier-Score
   brier <- mean((preds_test_set$pred_prob_pos_class - train_test_bwm$Test$data$ytarget)  ^ 2)
-
+  
   # [3] Collect the results & return them in a DF
   res_df <-  data.frame("path"               = path, 
                         "frac_train"         = frac_train, 
