@@ -1,16 +1,3 @@
-"Script to evaluate the Complete-Case approach on data with blockwise missingness
-
-  > All those blocks from the training-data that are not available in the test-data
-    are removed
-  > Then remove all observations from the (remaining) training data that contain 
-    missing values
-  > Train a RF on the resulting DF & use it then to create predicitons for the 
-    test-set (structure of test-data has to be known before training a RF)
-"
-# [0] SetWD, load packages, define fix variables and fuctions                ----
-# 0-1 Set WD (currently out-commented, as we need to load the script)
-setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
-setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
 setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
 
 # 0-2 Load packages
@@ -239,6 +226,12 @@ for (curr_path in df_paths) {
   for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
     for (curr_test_pattern in c(1, 2, 3, 4)) {
       for (curr_repetition in c(1, 2, 3, 4, 5)) {
+        
+        cat('-----------------------------------------------\n',
+            "Current Path:          >", curr_path, '\n',
+            "Current Train Pattern: >", curr_train_pattern, '\n',
+            "Current Test Patter:   >", curr_test_pattern, '\n',
+            "Current Repetition:    >", curr_repetition, '\n')
         
         # Set the seed for the 'split'
         curr_split_seed = 12345678 + curr_repetition
