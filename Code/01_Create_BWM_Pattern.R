@@ -65,8 +65,9 @@ process_loaded_data <- function(raw_data) {
       > 'data': A single DF (fully observed) made of the four-blocks 'clin', 'cnv', 
         'mirna' & 'rna' (also in this order), as well as the response variable
         'ytarget'.
-      > 'block_index: A vector with the index of which variable belongs to which 
-         block (e.g. [1, 1, 2, 2, 2, 2] - > first 2-variables 1. block, rest in 2. block)
+      > 'block_index: A vector with the index of which variable belongs to which block 
+                     (e.g. [1, 1, 2, 2, 2, 2] - > first 2-variables 1. block of block_names, 
+                                                  rest in 2. block of block_names)
       > 'block_names': A vector with the names of the blocks and their order
   "
   # [0] Check Inputs
@@ -100,9 +101,83 @@ process_loaded_data <- function(raw_data) {
               'block_names' = c('clin', 'cnv', 'mirna', 'rna')))
 }
 
-# 0-4-3 Shuffle the block-order of the processed_loaded_data 
+# 0-4-3 Split the data into a test- & train-set
+split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
+  " Split the processed data (from 'process_loaded_data()') into a train- & 
+    test-set. 
+    
+    Args: 
+      > data             (list): List filled with 'data', 'block_index' & 
+                                 'block_names' coming from 'process_loaded_data()'
+      > fraction_train (double): Fraction of observations that shall be used
+                                 for the training-set. 1 - fraction_train equals
+                                 the fraction of the test-set!
+      > seed              (int): Seed for reproducibility
+      
+    Return:
+      > A list containing two further lists (once train, once test). Each of
+        these lists is filled with: 
+        > 'data': A single DF (fully obserbed) made of the four-blocks 'clin', 
+          'cnv', 'mirna' & 'rna' (also in this order), as well as the response
+          variable 'ytarget'.
+        > 'block_index: A vector with the index of which variable belongs to  
+           which block (e.g. [1, 1, 2, 2, 2, 2] - > first 2-variables 1. block of block_names, 
+                                                    rest in 2. block of block_names)
+        > 'block_names': A vector with the names of the blocks in the correct order
+  "
+  # [0] Check inputs
+  # 0-1 'data' has to be list with the entrances 'data', 'block_index' & 'block_names'
+  assert_list(data, len = 3)
+  if (!all(sapply(names(data), function(x) x %in% c('data', 'block_index', 'block_names')))) {
+    stop("'data' must contain 'data', 'block_index' & 'block_names' as entrances")
+  }
+  
+  # 0-2 'data' has to be data.frame, 'block_index' & 'block_names' must be a vector
+  assert_data_frame(data$data)
+  assert_vector(data$block_index)
+  assert_vector(data$block_names)
+  
+  # 0-3 'block_index'/ 'block_names' must only contain int/ char
+  if (!all(sapply(data$block_index, function(x) is.integer(x)))) {
+    stop("'data$block_index' must only contain integers")
+  }
+  if (!all(sapply(data$block_names, function(x) is.character(x)))) {
+    stop("'data$block_names' must only contain strings")
+  }
+  
+  # 0-4 'fraction_train' must be float in ]0;1[ & 'seed' an integer
+  assert_number(fraction_train, lower = 0, upper = 1)
+  assert_int(seed)
+  
+  # [1] Split the data into test- & train-set 
+  #     (incl all corresponding entrances from 'block_index' & 'block_names')
+  # 1-1 Get the amount of data-points for the train-set
+  amount_train = round(fraction_train * nrow(data$data))
+  
+  # 1-2 Sample 'amount_train' data-points between 1-amount of observations
+  #     & get the row indeces for the test-obs aswell 
+  set.seed(seed)
+  train_obs <- sample(1:nrow(data$data), amount_train)
+  test_obs  <- which(! c(1:nrow(data$data)) %in% train_obs)
+  
+  # 1-3 Split the list and all its entrances to 'train' & 'test'
+  # 1-3-1 TRAIN
+  train_list <- list('data' = data$data[train_obs,],
+                     'block_index' = data$block_index,
+                     'block_names' = data$block_names)
+  # 1-3-2 TEST
+  test_list <- list('data' = data$data[test_obs,],
+                    'block_index' = data$block_index,
+                    'block_names' = data$block_names)
+  
+  # [2] Return the Train- & Test-Set in a list with corresponding entrances
+  return(list('train_set' = train_list,
+              'test_set'  = test_list))
+}
+
+# 0-4-4 Shuffle the block-order of the processed_loaded_data 
 shuffle_block_order <- function(data, seed) {
-  "Shuffle the block order of 'data' - created in 'process_loaded_data()'.
+  "Shuffle the block order of train- & test-set - created in 'split_processed_data()'.
  The order of all blocks is shuffled, except for the 'clin' block, which
  will always be the first block. But instead of shuffeling the data, we only shuffle
  the 'block_index' & 'block_names' (which we need to access the corresponding variables)
@@ -163,80 +238,6 @@ Return:
   
   # [2] Return the data-set with shuffled 'block_names' & 'block_index'
   return(data)
-}
-
-# 0-4-4 Split the shuffled & processed data into a test- & train-set
-split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
-  " Split the processed data (from 'shuffle_block_order()') into a train- & 
-    test-set. 
-    
-    Args: 
-      > data             (list): List filled with 'data', 'block_index' & 
-                                 'block_names' coming from 'shuffle_block_order()'
-      > fraction_train (double): Fraction of observations that shall be used
-                                 for the training-set. 1 - fraction_train equals
-                                 the fraction of the test-set!
-      > seed              (int): Seed for reproducibility
-      
-    Return:
-      > A list containing two further lists (once train, once test). Each of
-        these lists is filled with: 
-        > 'data': A single DF (fully obserbed) made of the four-blocks 'clin', 
-          'cnv', 'mirna' & 'rna' (also in this order), as well as the response
-          variable 'ytarget'.
-        > 'block_index: A vector with the index of which variable belongs to  
-           which block (e.g. [1, 1, 2, 2, 2, 2] - > first 2-variables 1. block, 
-                                                    rest in 2. block)
-        > 'block_names': A vector with the names of the blocks in the correct order
-  "
-  # [0] Check inputs
-  # 0-1 'data' has to be list with the entrances 'data', 'block_index' & 'block_names'
-  assert_list(data, len = 3)
-  if (!all(sapply(names(data), function(x) x %in% c('data', 'block_index', 'block_names')))) {
-    stop("'data' must contain 'data', 'block_index' & 'block_names' as entrances")
-  }
-  
-  # 0-2 'data' has to be data.frame, 'block_index' & 'block_names' must be a vector
-  assert_data_frame(data$data)
-  assert_vector(data$block_index)
-  assert_vector(data$block_names)
-  
-  # 0-3 'block_index'/ 'block_names' must only contain int/ char
-  if (!all(sapply(data$block_index, function(x) is.integer(x)))) {
-    stop("'data$block_index' must only contain integers")
-  }
-  if (!all(sapply(data$block_names, function(x) is.character(x)))) {
-    stop("'data$block_names' must only contain strings")
-  }
-  
-  # 0-4 'fraction_train' must be float in ]0;1[ & 'seed' an integer
-  assert_number(fraction_train, lower = 0, upper = 1)
-  assert_int(seed)
-  
-  # [1] Split the data into test- & train-set 
-  #     (incl all corresponding entrances from 'block_index' & 'block_names')
-  # 1-1 Get the amount of data-points for the train-set
-  amount_train = round(fraction_train * nrow(data$data))
-  
-  # 1-2 Sample 'amount_train' data-points between 1-amount of observations
-  #     & get the row indeces for the test-obs aswell 
-  set.seed(seed)
-  train_obs <- sample(1:nrow(data$data), amount_train)
-  test_obs  <- which(! c(1:nrow(data$data)) %in% train_obs)
-  
-  # 1-3 Split the list and all its entrances to 'train' & 'test'
-  # 1-3-1 TRAIN
-  train_list <- list('data' = data$data[train_obs,],
-                     'block_index' = data$block_index,
-                     'block_names' = data$block_names)
-  # 1-3-2 TEST
-  test_list <- list('data' = data$data[test_obs,],
-                    'block_index' = data$block_index,
-                    'block_names' = data$block_names)
-  
-  # [2] Return the Train- & Test-Set in a list with corresponding entrances
-  return(list('train_set' = train_list,
-              'test_set'  = test_list))
 }
 
 # 0-4-5 Induce block-wise missingness pattern to Train
@@ -509,9 +510,9 @@ induce_bwm_test <- function(data, pattern) {
 }
 
 # 0-4-7 Wrap-Function that combines all of the above functions!
-get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
-                           block_seed = 1312, train_pattern = 1, 
-                           train_pattern_seed = 1234, test_pattern = 2) {
+get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,  block_seed_train = 1312, 
+                           block_seed_test  = 1234, train_pattern = 1, train_pattern_seed = 1234, 
+                           test_pattern = 2) {
   "Wrap up the functions from 0-4-1 to 0-4-6.
    Load the data, process it to a single DF, split it to test- & train-set, 
    shuffle the order of the blocks in test- & train-set & induce BWM into them
@@ -521,7 +522,8 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
     > path               (str): Path to a dataset - must contain 'Data/Raw'
     > frac_train       (float): Fraction of observations for the train-set (]0;1[)
     > split_seed         (int): Seed for the split of the data to train & test
-    > block_seed         (int): Seed for the shuffeling of the block-order in train & test (same order)
+    > block_seed_train   (int): Seed for the shuffeling of the block-order in train 
+    > block_seed_test    (int): Seed for the shuffeling of the block-order in test 
     > train_pattern      (int): Pattern to induce into train (1, 2, 3, 4, 5)
     > train_pattern_seed (int): Seed for the induction of the pattern for train
                                 (obs. are assigned to different folds!)
@@ -544,7 +546,8 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
   # 0-3 'split_seed', 'block_seed_train', 'block_seed_test' & 'train_pattern_seed'
   #     must be integers
   assert_int(split_seed)
-  assert_int(block_seed)
+  assert_int(block_seed_train)
+  assert_int(block_seed_test)
   assert_int(train_pattern_seed)
   
   # 0-4 'train_pattern'/ 'test_pattern' has to be a int in [1-5]/ [1-4]
@@ -559,16 +562,18 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
   #     'mutation'-block is only used to extract the response 'TP53' (now 'ytarget'), rest removed
   data_processed <- process_loaded_data(raw_data)
   
-  # 1-3 Shuffle the block-order of the processed data
-  data_shuffled <- shuffle_block_order(data = data_processed, seed = block_seed)
+  # 1-3 Split 'data_shuffled' to Train- & Test-Set
+  train_test <- split_processed_data(data_processed, fraction_train = frac_train, seed = split_seed)
   
-  # 1-4 Split 'data_shuffled' to Train- & Test-Set
-  train_test <- split_processed_data(data_shuffled, fraction_train = frac_train, seed = split_seed)
+  # 1-4 Shuffle the block-order of the test- & train-set 
+  #    (actually the data stays untouched & only 'block_names' & 'block_index' are shuffled)
+  train_shuffled <- shuffle_block_order(data = train_test$train, seed = block_seed_train)
+  test_shuffled  <- shuffle_block_order(data = train_test$test, seed = block_seed_test)
   
   # 1-5 Induce BWM-Pattern to train
-  train_bwm <- induce_bwm_train(data = train_test$train_set, pattern = train_pattern, 
+  train_bwm <- induce_bwm_train(data = train_shuffled, pattern = train_pattern, 
                                 seed = train_pattern_seed)
-  test_bwm  <- induce_bwm_test(data = train_test$test_set, pattern = test_pattern)
+  test_bwm  <- induce_bwm_test(data = test_shuffled, pattern = test_pattern)
   
   # [3] Return a list with the two lists 'train_bwm' & 'test_bwm'
   #     --> based on this data, we can evaluate various approaches
@@ -580,9 +585,9 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,
 # Currently out-commented, as we need to load the function to an other script!
 "
 # 1-1 Load & process the data, such that we can use it for evaluation of approaches
-train_test_bwm <- get_train_test(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, 
-                                 split_seed = 1312, block_seed = 1234, train_pattern = 2,
-                                 train_pattern_seed = 12, test_pattern = 2)
+train_test_bwm <- get_train_test(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
+                                 block_seed_train = 1312, block_seed_test  = 1234, train_pattern = 1,
+                                 train_pattern_seed = 1234, test_pattern = 2)
 
 # 1-2 Acess eveerything we need from 'Train' 
 train_tmp <- train_test_bwm$Train
