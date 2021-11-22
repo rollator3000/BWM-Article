@@ -1,3 +1,16 @@
+"Script to evaluate the Complete-Case approach on data with blockwise missingness
+
+  > All those blocks from the training-data that are not available in the test-data
+    are removed
+  > Then remove all observations from the (remaining) training data that contain 
+    missing values
+  > Train a RF on the resulting DF & use it then to create predicitons for the 
+    test-set (structure of test-data has to be known before training a RF)
+"
+# [0] SetWD, load packages, define fix variables and fuctions                ----
+# 0-1 Set WD (currently out-commented, as we need to load the script)
+setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
+setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
 setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
 
 # 0-2 Load packages
@@ -138,35 +151,8 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   # --> Test- & Train-Set consist of the same columns & all obs. are fully observed in it 
   
   # [2] Train & evaluate a RF (with its standard-settings) 
-  # 2-1 Get predictions for the test-set
-  # 2-1-1 If there is no obs. in the train-set set return the settings, with all
-  #     metrics set to '---'
-  if (nrow(train_test_bwm$Train$data) <= 0) {
-    return(data.frame("path"               = path, 
-                      "frac_train"         = frac_train, 
-                      "split_seed"         = split_seed, 
-                      "block_seed_train"   = block_seed_train,
-                      "block_seed_test"    = block_seed_test, 
-                      "block_order_train_for_BWM" = paste(train_test_bwm$Train$block_names, collapse = ' - '),
-                      "block_order_test_for_BWM"  = paste(train_test_bwm$Test$block_names, collapse = ' - '),
-                      "train_pattern"      = train_pattern, 
-                      "train_pattern_seed" = train_pattern_seed, 
-                      "test_pattern"       = test_pattern, 
-                      "ntree"              = '---', 
-                      "mtry"               = '---', 
-                      "min_node_size"      = '---', 
-                      "AUC"                = '---',
-                      "Accuracy"           = '---', 
-                      "Sensitivity"        = '---', 
-                      "Specificity"        = '---', 
-                      "Precision"          = '---', 
-                      "Recall"             = '---', 
-                      "F1"                 = '---', 
-                      "BrierScore"         = '---'))
-  } 
-  
-  # 2-1-2 Get predictions for the test-set from a RF that is fitted with its 
-  #       standard settings to the processed train-set (that has at least 1 obs.) 
+  # 2-1 Get predictions for the test-set from a RF that is fitted with its 
+  #     standard settings to the processed train-set
   preds_test_set <- get_predicition(train = train_test_bwm$Train$data, 
                                     test = train_test_bwm$Test$data)
   
@@ -184,29 +170,28 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   # 2-2-3 Calculate the Brier-Score
   brier <- mean((preds_test_set$pred_prob_pos_class - train_test_bwm$Test$data$ytarget)  ^ 2)
   
-  # [3] Collect the results & return them in a DF
-  res_df <-  data.frame("path"               = path, 
-                        "frac_train"         = frac_train, 
-                        "split_seed"         = split_seed, 
-                        "block_seed_train"   = block_seed_train,
-                        "block_seed_test"    = block_seed_test, 
-                        "block_order_train_for_BWM" = paste(train_test_bwm$Train$block_names, collapse = ' - '),
-                        "block_order_test_for_BWM"  = paste(train_test_bwm$Test$block_names, collapse = ' - '),
-                        "train_pattern"      = train_pattern, 
-                        "train_pattern_seed" = train_pattern_seed, 
-                        "test_pattern"       = test_pattern, 
-                        "ntree"              = preds_test_set$RF_ntree, 
-                        "mtry"               = preds_test_set$RF_mtry, 
-                        "min_node_size"      = preds_test_set$RF_min_node_size, 
-                        "AUC"                = AUC,
-                        "Accuracy"           = metrics_1$overall['Accuracy'], 
-                        "Sensitivity"        = metrics_1$byClass['Sensitivity'], 
-                        "Specificity"        = metrics_1$byClass['Specificity'], 
-                        "Precision"          = metrics_1$byClass['Precision'], 
-                        "Recall"             = metrics_1$byClass['Recall'], 
-                        "F1"                 = metrics_1$byClass['F1'], 
-                        "BrierScore"         = brier)
-  return(res_df)
+  # [3] Return the results as DF
+  return(data.frame("path"               = path, 
+                    "frac_train"         = frac_train, 
+                    "split_seed"         = split_seed, 
+                    "block_seed_train"   = block_seed_train,
+                    "block_seed_test"    = block_seed_test, 
+                    "block_order_train_for_BWM" = paste(train_test_bwm$Train$block_names, collapse = ' - '),
+                    "block_order_test_for_BWM"  = paste(train_test_bwm$Test$block_names, collapse = ' - '),
+                    "train_pattern"      = train_pattern, 
+                    "train_pattern_seed" = train_pattern_seed, 
+                    "test_pattern"       = test_pattern, 
+                    "ntree"              = preds_test_set$RF_ntree, 
+                    "mtry"               = preds_test_set$RF_mtry, 
+                    "min_node_size"      = preds_test_set$RF_min_node_size, 
+                    "AUC"                = AUC,
+                    "Accuracy"           = metrics_1$overall['Accuracy'], 
+                    "Sensitivity"        = metrics_1$byClass['Sensitivity'], 
+                    "Specificity"        = metrics_1$byClass['Specificity'], 
+                    "Precision"          = metrics_1$byClass['Precision'], 
+                    "Recall"             = metrics_1$byClass['Recall'], 
+                    "F1"                 = metrics_1$byClass['F1'], 
+                    "BrierScore"         = brier))
 }
 
 # [1] Run the experiments                                                    ----
@@ -244,14 +229,38 @@ for (curr_path in df_paths) {
         curr_train_pattern_seed = 12345 + curr_repetition
         
         # Run the evaluation with current settings
-        curr_res <- eval_cc_appr(path               = curr_path, 
-                                 frac_train         = 0.75, 
-                                 split_seed         = curr_split_seed,
-                                 block_seed_train   = curr_block_seed_train, 
-                                 block_seed_test    = curr_block_seed_test,
-                                 train_pattern      = curr_train_pattern,
-                                 train_pattern_seed = curr_train_pattern_seed, 
-                                 test_pattern       = curr_test_pattern)
+        curr_res <- tryCatch(eval_cc_appr(path               = curr_path, 
+                                          frac_train         = 0.75, 
+                                          split_seed         = curr_split_seed,
+                                          block_seed_train   = curr_block_seed_train, 
+                                          block_seed_test    = curr_block_seed_test,
+                                          train_pattern      = curr_train_pattern,
+                                          train_pattern_seed = curr_train_pattern_seed, 
+                                          test_pattern       = curr_test_pattern),
+                             error = function(c) {
+                               data.frame("path"               = path, 
+                                          "frac_train"         = frac_train, 
+                                          "split_seed"         = split_seed, 
+                                          "block_seed_train"   = block_seed_train,
+                                          "block_seed_test"    = block_seed_test, 
+                                          "block_order_train_for_BWM" = paste(train_test_bwm$Train$block_names, collapse = ' - '),
+                                          "block_order_test_for_BWM"  = paste(train_test_bwm$Test$block_names, collapse = ' - '),
+                                          "train_pattern"      = train_pattern, 
+                                          "train_pattern_seed" = train_pattern_seed, 
+                                          "test_pattern"       = test_pattern, 
+                                          "ntree"              = '---', 
+                                          "mtry"               = '---', 
+                                          "min_node_size"      = '---', 
+                                          "AUC"                = '---',
+                                          "Accuracy"           = '---', 
+                                          "Sensitivity"        = '---', 
+                                          "Specificity"        = '---', 
+                                          "Precision"          = '---', 
+                                          "Recall"             = '---', 
+                                          "F1"                 = '---', 
+                                          "BrierScore"         = '---')
+                             }
+        ) 
         
         # Add the curr_repetition to 'curr_res', before adding it to 'CC_res'
         curr_res$repetition <- curr_repetition
