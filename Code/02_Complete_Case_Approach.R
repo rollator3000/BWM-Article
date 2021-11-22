@@ -242,7 +242,7 @@ for (curr_path in df_paths) {
                                           "frac_train"         = 0.75, 
                                           "split_seed"         = curr_split_seed, 
                                           "block_seed_train"   = curr_block_seed_test,
-                                          "block_seed_test"    = block_seed_test, 
+                                          "block_seed_test"    = curr_block_seed_test, 
                                           "block_order_train_for_BWM" = '---',
                                           "block_order_test_for_BWM"  = '---',
                                           "train_pattern"      = curr_train_pattern, 
