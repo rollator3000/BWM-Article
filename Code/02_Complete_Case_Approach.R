@@ -24,7 +24,7 @@ library(pROC)
 # 0-3 Define fixed variables
 # 0-3-1 Define amount of usable cores (parallel computing)
 detectCores()
-registerDoParallel(cores = 20)
+registerDoParallel(cores = 2)
 
 # 0-4 Load functions from 'code/01_Create_BWM_Pattern"
 source("./Code/01_Create_BWM_Pattern.R")
