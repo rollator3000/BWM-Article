@@ -93,12 +93,13 @@ get_predicition <- function(train, test) {
 eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
                          block_seed_train = 1234, block_seed_test = 1312, train_pattern = 2, 
                          train_pattern_seed = 12, test_pattern = 2) {
-  "Evaluate the CC-Approach on the data 'path' points to. Use 'frac_train' of this
-   data for the training of a RF (w/ its standard settings 'ntree', 'mtry' &
-   'min_node_size') & evaluate it on test-set then. The train- & test-set is induced
-   with a pattern of BWM. Finally return a DF with the the AUC, the Brier-Score and 
-   the standard metrics Precision, Recall, Sensitivity, Specificity, F-1 Score & Accuracy +
-   all the settings for the evaluation (e.g. path, seeds, train_pattern, settings for RF, block_order, ...).
+  "Evaluate the CC-Approach on the data 'path' points to. 
+   Remove all blocks from the train-set that are not available in the test-set! Then remove all
+   observations from the train-set that are not fully observed. On the resulting DF, a RF is trained 
+   (w/ its standard settings 'ntree', 'mtry' & 'min_node_size') & evaluated on test-set then. 
+   Finally return a DF with the the AUC, the Brier-Score and the standard metrics Precision, Recall, 
+   Sensitivity, Specificity, F-1 Score & Accuracy + all the settings for the evaluation 
+   (e.g. path, seeds, train_pattern, settings for RF, block_order, ...).
    
    Args:
       > path               (str): Path to a dataset - must contain 'Data/Raw'
