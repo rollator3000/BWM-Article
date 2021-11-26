@@ -76,6 +76,10 @@ Details to the enviroments at the end of the READ-ME.
     - Evaluate the Complete-Case approach on the data with induced BWM (both Test- & Train-Set)
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/CC_Approach'
 
+#### [4] 03_Single_Block_Approach.R 
+    - Evaluate the Single_Block approach on the data with induced BWM (both Test- & Train-Set)
+    - Results of the evaluation are stored in 'Docs/Evaluation_Results/SB_Approach'
+
 ## Folder-Structure  
 ```
 ├── README.md <- Top-level README for devs working with this repository
@@ -100,5 +104,6 @@ Details to the enviroments at the end of the READ-ME.
     ├── Example <- Templates & Examples
     ├── 00_Inspect_raw_data.R
     ├── 01_Create_BWM_Pattern.R
-    └── 02_Complete_Case_Approach.R
+    ├── 02_Complete_Case_Approach.R
+    └── 3_Single_Block_Approach.R 
 ```
