@@ -325,7 +325,7 @@ SB_res <- data.frame()
 # 1-2 Define a list with the paths to the availabe DFs
 df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
 
-# 1-3 Loop over all the possible settings for the evaluation of the CC-Approach
+# 1-3 Loop over all the possible settings for the evaluation of the SB-Approach
 #     each setting is evaluated 5-times!
 for (curr_path in df_paths) {
   for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
@@ -384,11 +384,11 @@ for (curr_path in df_paths) {
                              }
         ) 
         
-        # Add the curr_repetition to 'curr_res', before adding it to 'CC_res'
+        # Add the curr_repetition to 'curr_res', before adding it to 'SB_res'
         curr_res$repetition <- curr_repetition
         curr_res$approach   <- 'SingleBlock'
         
-        # Add the results of the setting to 'CC_res' & save it
+        # Add the results of the setting to 'SB_res' & save it
         SB_res <- rbind(SB_res, curr_res)
         write.csv(SB_res, './Docs/Evaluation_Results/SB_Approach/SB_Eval.csv')
       }
