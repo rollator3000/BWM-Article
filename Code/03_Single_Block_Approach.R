@@ -316,3 +316,82 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                     "F1"                 = metrics_1$byClass['F1'], 
                     "BrierScore"         = brier))
 }
+
+
+# [1] Run the experiments                                                    ----
+# 1-1 Initalize a empty DF to store the results
+SB_res <- data.frame()
+
+# 1-2 Define a list with the paths to the availabe DFs
+df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
+
+# 1-3 Loop over all the possible settings for the evaluation of the CC-Approach
+#     each setting is evaluated 5-times!
+for (curr_path in df_paths) {
+  for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
+    for (curr_test_pattern in c(1, 2, 3, 4)) {
+      for (curr_repetition in c(1, 2, 3, 4, 5)) {
+        
+        cat('-----------------------------------------------\n',
+            "Current Path:          >", curr_path, '\n',
+            "Current Train Pattern: >", curr_train_pattern, '\n',
+            "Current Test Patter:   >", curr_test_pattern, '\n',
+            "Current Repetition:    >", curr_repetition, '\n')
+        
+        # Set the seed for the 'split'
+        curr_split_seed = 12345678 + curr_repetition
+        
+        # Set the seed for the shuffling of the blocks of train & test
+        curr_block_seed_train = 1234567 + curr_repetition
+        curr_block_seed_test  = 7654321 + curr_repetition
+        
+        # Set the seed for the train_pattern (shuffling of observations)
+        curr_train_pattern_seed = 12345 + curr_repetition
+        
+        # Run the evaluation with current settings
+        curr_res <- tryCatch(eval_sb_appr(path               = curr_path, 
+                                          frac_train         = 0.75, 
+                                          split_seed         = curr_split_seed,
+                                          block_seed_train   = curr_block_seed_train, 
+                                          block_seed_test    = curr_block_seed_test,
+                                          train_pattern      = curr_train_pattern,
+                                          train_pattern_seed = curr_train_pattern_seed, 
+                                          test_pattern       = curr_test_pattern),
+                             error = function(c) {
+                               data.frame("path"               = curr_path, 
+                                          "frac_train"         = 0.75, 
+                                          "split_seed"         = curr_split_seed, 
+                                          "block_seed_train"   = curr_block_seed_test,
+                                          "block_seed_test"    = curr_block_seed_test, 
+                                          "block_order_train_for_BWM" = '---',
+                                          "block_order_test_for_BWM"  = '---',
+                                          "train_pattern"      = curr_train_pattern, 
+                                          "train_pattern_seed" = curr_train_pattern_seed, 
+                                          "test_pattern"       = curr_test_pattern,
+                                          "common_blocks"      = "---",
+                                          "block_best_oob_auc" = "---",
+                                          "ntree"              = '---', 
+                                          "mtry"               = '---', 
+                                          "min_node_size"      = '---', 
+                                          "AUC"                = '---',
+                                          "Accuracy"           = '---', 
+                                          "Sensitivity"        = '---', 
+                                          "Specificity"        = '---', 
+                                          "Precision"          = '---', 
+                                          "Recall"             = '---', 
+                                          "F1"                 = '---', 
+                                          "BrierScore"         = '---')
+                             }
+        ) 
+        
+        # Add the curr_repetition to 'curr_res', before adding it to 'CC_res'
+        curr_res$repetition <- curr_repetition
+        curr_res$approach   <- 'SingleBlock'
+        
+        # Add the results of the setting to 'CC_res' & save it
+        SB_res <- rbind(SB_res, curr_res)
+        write.csv(SB_res, './Docs/Evaluation_Results/SB_Approach/SB_Eval.csv')
+      }
+    }
+  }
+}
