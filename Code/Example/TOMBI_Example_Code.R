@@ -141,19 +141,13 @@ blockind        <- rep(1:4, times = c(ncol(block1), ncol(block2), ncol(block3),
 load("./Data/Example_Data/ExampleData.Rda")
 
 # 3-2 Process the data
-# --1 Extract the response & delete the column in the df
-omicsdata         <- datatrain1
+# --1 Extract the response & delete the corresponding column in the df
+omicsdata         <- datatrain2
+dim(omicsdata); sum(is.na(omicsdata)) # Has missing values (except for datatrain1) & the following dimensions
 ytarget           <- datatrain1$ytarget
 omicsdata$ytarget <- NULL
+dim(omicsdata); sum(is.na(omicsdata)) # Still missing values and the features are reduced by 1
 
-"
-# --> Only relevant when running the imputation on locally!
-# --> Not relevant for Server
-
-# --2 Remove the second & fourth block for a imputation that is locally possible
-omicsdata2 <- omicsdata[,blockind != 2 & blockind != 4]
-blockind2  <- blockind[blockind != 2 & blockind != 4]
-"
 # 3-3 Apply the imputation with TOMBI 
 #     (original data & index of blocks for the variables are needed)
 tic()
@@ -166,6 +160,6 @@ toc()
 # --> 001 seconds for 'datatrain1'
 
 # 3-4 Check whether the imputation was successful
-any(is.na(omicsdata))     # -> should contain NAs
-any(is.na(omicsdata2imp)) # -> should not contain any NAs
-                          # --> Seems to be working
+any(is.na(omicsdata)); sum(is.na(omicsdata)) # -> should contain NAs
+any(is.na(omicsdata2imp)); sum(is.na(omicsdata2imp))  # -> should not contain any NAs
+                                                      # --> Seems to be working
