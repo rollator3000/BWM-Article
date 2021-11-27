@@ -196,12 +196,8 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
 }
 
 # [1] Run the experiments                                                    ----
-# 1-1 If already existent, load the DF with the results of the CC-Approach so far
-if (file.exists('./Docs/Evaluation_Results/CC_Approach/CC_Eval.csv')) {
-  CC_res <- read.csv('./Docs/Evaluation_Results/CC_Approach/')
-} else {
-  CC_res <- data.frame()
-}
+# 1-1 Initalize mepty DF to store the results
+CC_res <- data.frame()
 
 # 1-2 Define a list with the paths to the availabe DFs
 df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
