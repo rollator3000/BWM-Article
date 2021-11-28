@@ -74,11 +74,19 @@ Details to the enviroments at the end of the READ-ME.
 
 #### [3] 02_Complete_Case_Approach.R
     - Evaluate the Complete-Case approach on the data with induced BWM (both Test- & Train-Set)
+    - Only use complete cases from the train-set that are observed in all blocks that are available for test
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/CC_Approach'
 
 #### [4] 03_Single_Block_Approach.R 
     - Evaluate the Single_Block approach on the data with induced BWM (both Test- & Train-Set)
+    - Fit an RF on each single block train- & test-set have in common. The RF with the highest oob-AUC
+      is used to predict on the test-set set.
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/SB_Approach'
+
+#### [5] 04_Imputation_Approach.R 
+    - Evaluate the Imputation approach on the data with induced BWM (both Test- & Train-Set)
+    - Impute the BWM-Missing values in the train-set with TOMBI-Imputation & train a RF on it then
+    - Results of the evaluation are stored in 'Docs/Evaluation_Results/IMP_Approach'
 
 ## Folder-Structure  
 ```
