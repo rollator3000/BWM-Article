@@ -297,7 +297,10 @@ df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
 
 # 1-3 Loop over all the possible settings for the evaluation of the IMP-Approach
 #     each setting is evaluated 5-times!
-for (curr_path in df_paths) {
+for (curr_path in df_paths[3:13]) {
+  
+  'BRCA NOT COMPLETLY READY YET!'
+  
   for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
     for (curr_test_pattern in c(1, 2, 3, 4)) {
       for (curr_repetition in c(1, 2, 3, 4, 5)) {
