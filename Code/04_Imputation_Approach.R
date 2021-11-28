@@ -63,7 +63,7 @@ TOBMIfast <- function(x = cpg, y = exp) {
   imputed.data<-y
 }
 
-# 0-5-2 Function to do imputation a là TOMBI
+# 0-5-2 Function to do imputation a la TOMBI
 ImputeWithTOBMI <- function(omicsdata, blockind) {
   
   rownamessafe        <- rownames(omicsdata)
