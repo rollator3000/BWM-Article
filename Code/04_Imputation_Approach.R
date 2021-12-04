@@ -1,14 +1,15 @@
 "Script to evaluate the Imputation approach on data with blockwise missingness
 
-  > 1. Impute thes missing values in the train-set with TOMBI
+  > 1. Impute thes missing values in the train-set with TOBMI
+       (see 'https://academic.oup.com/bioinformatics/article/35/8/1278/5092930')
   > 2. Remove all blocks from train that are not available in test
   > 3. Fit a RF on the remaining train-set
   > 4. Use this RF to predict on the test-set & get the corresponding metrics
   
   > Functions for the imputation with TOMBI have been supplied by Dr. Roman Hornung.
 "
-# [0] SetWD, load packages, define fix variables and fuctions                ----
-# 0-1 Set WD (currently out-commented, as we need to load the script)
+# [0] Set WD, load packages, define fix variables and functions                ----
+# 0-1 Set WD
 setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
 setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
 setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
@@ -297,10 +298,7 @@ df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
 
 # 1-3 Loop over all the possible settings for the evaluation of the IMP-Approach
 #     each setting is evaluated 5-times!
-for (curr_path in df_paths[3:13]) {
-  
-  'BRCA NOT COMPLETLY READY YET!'
-  
+for (curr_path in df_paths) {
   for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
     for (curr_test_pattern in c(1, 2, 3, 4)) {
       for (curr_repetition in c(1, 2, 3, 4, 5)) {
