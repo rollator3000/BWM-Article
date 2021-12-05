@@ -7,7 +7,7 @@
   > Use the oob-AUC of the block-wise fitted RFs to determine their weight in the weighted average! 
 "
 # [0] SetWD, load packages, define fix variables and fuctions                ----
-# 0-1 Set WD (currently out-commented, as we need to load the script)
+# 0-1 Set WD
 setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
 setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
 setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
@@ -312,7 +312,7 @@ for (curr_path in df_paths) {
         
         # Add the results of the setting to 'SB_res' & save it
         BW_res <- rbind(BW_res, curr_res)
-        write.csv(BW_res, './Docs/Evaluation_Results/BW_Approach/BW_Eval.csv')
+        write.csv(SB_res, './Docs/Evaluation_Results/BW_Approach/BW_Eval.csv')
       }
     }
   }
