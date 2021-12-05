@@ -1,12 +1,12 @@
 # BMW-Paper
 This is the repository for the article 'Prediction approaches for partly missing multi-omics covariate data: An empirical comparison study'.  
-This article is written in colobration with Anne-Laure Boulesteix, Roman Hornung *(both IBE @LMU)* & Jonas Hagenberg.  
+This article is written in collaboration with Roman Hornung *(IBE @LMU)* & Jonas Hagenberg.  
 My personal contribution to the article is the implementation of various RF-approaches and the evaluation of these.  
 
 
 ## Project description
 This project compares different approaches capable to deal with block-wise missingness in Multi-Omics data.  
-The approaches are either random forest based, or based on penalised regression. 
+The approaches are either based on random forest, or on penalised regression. 
 
 ## Block-wise missingness:
 - Block-wise missingness is a special type of missingness that appears frequently in the context of Multi-Omics data. It can, for example, arise when concatenating multiple clinical studies with the same target variable. Even though the datasets from the different studies have the same target variable, the observed features can still differ! The concatenation of such datasets results then in a DF with block-wise missingness!  
@@ -85,8 +85,15 @@ Details to the enviroments at the end of the READ-ME.
 
 #### [5] 04_Imputation_Approach.R 
     - Evaluate the Imputation approach on the data with induced BWM (both Test- & Train-Set)
-    - Impute the BWM-Missing values in the train-set with TOMBI-Imputation & train a RF on it then
+    - Impute the BWM-Missing values in the train-set with TOBMI-Imputation & train a RF on it then
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/IMP_Approach'
+
+#### [6] 05_Blockwise_Approach.R 
+    - Evaluate the Blockmwise approach on the data with induced BWM (both Test- & Train-Set)
+    - Fit a RF seperatly on each block of the train data that test & train have in common
+    - Weight the final predicitons on the test-set with the oob-AUC of the block-wise RFs 
+      to obtain predicitons on the test-set
+    - Results of the evaluation are stored in 'Docs/Evaluation_Results/BW_Approach'
 
 ## Folder-Structure  
 ```
@@ -94,16 +101,14 @@ Details to the enviroments at the end of the READ-ME.
 │ 
 ├── Data <- All the data for this repository
 │   │   
-│   ├─── raw <- All 13 Multi-Omics DFs (as they were provided & w/o further processing)
-│   │         
+│   ├─── raw          <- 13 Multi-Omics DFs (as they were provided & w/o further processing)      
 │   └─── Example_Data <- Examplary data needed for the implementations
 │  
 ├── Docs <- Sources, Results and everything else documenting the repository  
 │   │  
 │   ├─── Article_Versions   <- Different Versions of the article (shall be published in the end)
 │   ├─── Evaluation_Results <- Results of the evaluation for all approaches
-│   ├─── DataInfo           <- Overview to amount of rows & features per block for each DF in Data/Raw
-│   └─── PhenomeImpute      <- Package to use the R-Function 'PhenomeImpute'
+│   └─── DataInfo           <- Overview to amount of rows & features per block for each DF in Data/Raw
 │  
 ├── envs <- the various enviroments of the project
 │
@@ -113,5 +118,7 @@ Details to the enviroments at the end of the READ-ME.
     ├── 00_Inspect_raw_data.R
     ├── 01_Create_BWM_Pattern.R
     ├── 02_Complete_Case_Approach.R
-    └── 3_Single_Block_Approach.R 
+    ├── 03_Single_Block_Approach.R 
+    ├── 04_Imputation_Approach.R 
+    └── 05_Blockwise_Approach.R 
 ```
