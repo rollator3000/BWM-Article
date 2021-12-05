@@ -312,7 +312,7 @@ for (curr_path in df_paths) {
         
         # Add the results of the setting to 'SB_res' & save it
         BW_res <- rbind(BW_res, curr_res)
-        write.csv(SB_res, './Docs/Evaluation_Results/BW_Approach/BW_Eval.csv')
+        write.csv(BW_res, './Docs/Evaluation_Results/BW_Approach/BW_Eval.csv')
       }
     }
   }
