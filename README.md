@@ -1,6 +1,7 @@
 # BMW-Paper
-This is the repository for the article 'Prediction approaches for partly missing multi-omics covariate data: An empirical comparison study'.  
-This article is written in collaboration with Roman Hornung *(IBE @LMU)* & Jonas Hagenberg.  
+This is the repository for the article:  
+**Prediction approaches for partly missing multi-omics covariate data: An empirical comparison study**    
+This article is written in collaboration with Dr. R. Hornung *(IBE @LMU)* & J. Hagenberg.  
 My personal contribution to the article is the implementation of various RF-approaches and the evaluation of these.  
 
 
@@ -45,14 +46,12 @@ Data with blockwise missingness always consists of different **folds** and **blo
 
 ## Data   
 * The data comes from the TCGA *(The Cancer Genome Atlas)* and each dataset consits of multiple omics-blocks
-* The data was provided by Roman Hornung, who has worked with these multi-omics data-sets already  
+* The data was provided by Dr. R. Hornung, who has worked with these multi-omics data-sets already  
 * The provided data doesn't contain any missing values, such that the blockwise-missingness needs to be induced  
 * Each data-set uses the 'TP53'-Mutation as response and consits of four further (used) blocks 'clinical', 'copy number variation', 'miRNA' & 'RNA'
 
 ## Code  
 This section contains short descriptions to the scripts in 'Code/' - there is an logical order in these scripts!  
-To the '.py' scripts there is always a note to the enviroment to run the script from.  
-Details to the enviroments at the end of the READ-ME. 
 
 #### [1] 00_Inspect_raw_data.R
     - Get a overview to the files in 'Data/Raw'
@@ -109,8 +108,6 @@ Details to the enviroments at the end of the READ-ME.
 │   ├─── Article_Versions   <- Different Versions of the article (shall be published in the end)
 │   ├─── Evaluation_Results <- Results of the evaluation for all approaches
 │   └─── DataInfo           <- Overview to amount of rows & features per block for each DF in Data/Raw
-│  
-├── envs <- the various enviroments of the project
 │
 └── code <- Code of the repository
     │
