@@ -95,14 +95,14 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
 │ 
 ├── Data <- All the data for this repository
 │   │   
-│   ├─── raw          <- 13 Multi-Omics DFs (as they were provided & w/o further processing)      
-│   └─── Example_Data <- Examplary data needed for the implementations
+│   ├─── raw          <- 13 Multi-Omics DFs from TCGA (provided by Dr. R. Hornung)      
+│   └─── Example_Data <- Examplary data needed for the implementations of the approaches  
 │  
 ├── Docs <- Sources, Results and everything else documenting the repository  
 │   │  
 │   ├─── Article_Versions   <- Different Versions of the article (shall be published in the end)
-│   ├─── Evaluation_Results <- Results of the evaluation for all approaches
-│   └─── DataInfo           <- Overview to amount of rows & features per block for each DF in Data/Raw
+│   ├─── DataInfo           <- Overview to amount of rows & features per block for each DF in Data/Raw
+│   └─── Evaluation_Results <- Results of the evaluation for all approaches
 │
 └── Code <- Code of the repository
     │
