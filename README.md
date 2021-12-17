@@ -1,27 +1,32 @@
 # BMW-Paper
-This is the repository for the article:  
 **Prediction approaches for partly missing multi-omics covariate data: An empirical comparison study**    
 This article is written in collaboration with Dr. R. Hornung *(IBE @LMU)* & J. Hagenberg.  
-My personal contribution to the article is the implementation of various RF-approaches and the evaluation of these.  
+My personal contribution to the article is the implementation of various RF-approaches and their evaluation.  
 
 
 ## Project description
 This project compares different approaches capable to deal with block-wise missingness in Multi-Omics data.  
-The approaches are either based on random forest, or on penalised regression. 
+The approaches are either based on the random-forest or on the penalised-regression approach.   
 
 ## Block-wise missingness:
-- Block-wise missingness is a special type of missingness that appears frequently in the context of Multi-Omics data. It can, for example, arise when concatenating multiple clinical studies with the same target variable. Even though the datasets from the different studies have the same target variable, the observed features can still differ! The concatenation of such datasets results then in a DF with block-wise missingness!  
+- Block-wise missingness is a special type of missingness that appears frequently in the context of Multi-Omics data.  For example when concatenating data from multiple clinical studies. Even though the different studies have the same target variable, the observed features can still differ! The concatenation of such datasets results then in a DF with block-wise missingness!  
 
-- Regular model fitting on data with block-wise missingness is for most approaches not directly possible, such that either the method needs to be adjusted or the data processed! 
+- Regular model fitting on data with block-wise missingness is not directly possible for most approaches, such that either the method needs to be adjusted or the data processed! 
 
-- Besides the training, the test data can also consist of block-wise missingness. Therefore the approaches must be able to deal with block-wise missing data in the test data as well as in the train data. <br>
+- Besides the train-data, also the test-data can consist of block-wise missingness. Therefore the approaches must be able to deal with block-wise missing data in the test- as well as in the train-data. <br>
 
 ### Example for data with blockwise missingness:
 Data with blockwise missingness always consists of different **folds** and **blocks**.  
   - A **block** describes a set of covariates containing all features collected based on a characteristic  
-    -> All covariates that are related in content (e.g. *physical properties*: Height & Weight | *educational properties*: Income & Education').  
+    &#8594; All covariates that are related in content - the example has three blocks:  
+     - **Physical properties:**     Weight, Height
+     - **Educational properties:**  Income, Education
+     - **Biological properties:**   g1, ..., g100
   - A **fold** represents a set of observations with the same observed blocks.  
-    -> All observations with the same observed features. Each fold is unique and every observation belongs to exactly one of them.
+    &#8594; All observations with the same observed features - the example has three folds:   
+     - **Fold1:** All observations with observed Physical & Educational properties
+     - **Fold2:** All observations with observed Educational & Biological properties
+     - **Fold3:** All observations with observed Physical & Biological properties
   
 | ID  | Weight  | Height  | Income  | Education   | g1      | ...   | g100    | Y   |
 |---- |-------- |-------- |-------- |-----------  |-------  |-----  |-------  |---  |
@@ -33,22 +38,12 @@ Data with blockwise missingness always consists of different **folds** and **blo
 | 6   | 105.2   | 175     |         |             | -1.53   | ...   | 2.01    | 0   |
 | 7   | 71.5    | 173     |         |             | 0.93    | ...   | 0.53    | 0   |
 | 8   | 73.0    | 169     |         |             | 0.31    | ...   | -0.07   | 1   |
-
-  - The data consits of three feature-blocks:
-     - **Physical properties:**     Weight, Height
-     - **Educational properties:**  Income, Education
-     - **Biological properties:**   g1, ..., g100
-  -  The data consits of three folds:
-     - **Fold1:** All observations with observed Physical & Educational properties
-     - **Fold2:** All observations with observed Educational & Biological properties
-     - **Fold3:** All observations with observed Physical & Biological properties
-   
-
+  
 ## Data   
 * The data comes from the TCGA *(The Cancer Genome Atlas)* and each dataset consits of multiple omics-blocks
 * The data was provided by Dr. R. Hornung, who has worked with these multi-omics data-sets already  
 * The provided data doesn't contain any missing values, such that the blockwise-missingness needs to be induced  
-* Each data-set uses the 'TP53'-Mutation as response and consits of four further (used) blocks 'clinical', 'copy number variation', 'miRNA' & 'RNA'
+* Each data-set uses the 'TP53'-Mutation as response and consits of four further  omics-blocks 'clinical', 'copy number variation', 'miRNA' & 'RNA'
 
 ## Code  
 This section contains short descriptions to the scripts in 'Code/' - there is an logical order in these scripts!  
@@ -100,22 +95,22 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
 │ 
 ├── Data <- All the data for this repository
 │   │   
-│   ├─── raw          <- 13 Multi-Omics DFs (as they were provided & w/o further processing)      
-│   └─── Example_Data <- Examplary data needed for the implementations
+│   ├─── raw          <- 13 Multi-Omics DFs from TCGA (provided by Dr. R. Hornung)      
+│   └─── Example_Data <- Examplary data needed for the implementations of the approaches  
 │  
 ├── Docs <- Sources, Results and everything else documenting the repository  
 │   │  
 │   ├─── Article_Versions   <- Different Versions of the article (shall be published in the end)
-│   ├─── Evaluation_Results <- Results of the evaluation for all approaches
-│   └─── DataInfo           <- Overview to amount of rows & features per block for each DF in Data/Raw
+│   ├─── DataInfo           <- Overview to amount of rows & features per block for each DF in Data/Raw
+│   └─── Evaluation_Results <- Results of the evaluation for all approaches
 │
-└── code <- Code of the repository
+└── Code <- Code of the repository
     │
-    ├── Example <- Templates & Examples
     ├── 00_Inspect_raw_data.R
     ├── 01_Create_BWM_Pattern.R
     ├── 02_Complete_Case_Approach.R
     ├── 03_Single_Block_Approach.R 
     ├── 04_Imputation_Approach.R 
-    └── 05_Blockwise_Approach.R 
+    ├── 05_Blockwise_Approach.R 
+    └── Example <- Templates, Examples & scripts to reproduce bugs
 ```
