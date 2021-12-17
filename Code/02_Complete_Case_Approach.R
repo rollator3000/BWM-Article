@@ -1,13 +1,13 @@
 "Script to evaluate the Complete-Case approach on data with blockwise missingness
 
-  > All those blocks from the training-data that are not available in the test-data
-    are removed
+  > All those blocks from the training-data that are not available in the 
+    test-data are removed
   > Then remove all observations from the (remaining) training data that contain 
     missing values
   > Train a RF on the resulting DF & use it then to create predicitons for the 
     test-set (structure of test-data has to be known before training a RF)
 "
-# [0] SetWD, load packages, define fix variables and fuctions                ----
+# [0] SetWD, load packages, define variables and functions                  ----
 # 0-1 Set WD (currently out-commented, as we need to load the script)
 setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
 setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
@@ -22,22 +22,17 @@ library(caret)
 library(pROC)
 
 # 0-3 Define fixed variables
-# 0-3-1 Define amount of usable cores (parallel computing)
-detectCores()
-registerDoParallel(cores = 2)
 
 # 0-4 Load functions from 'code/01_Create_BWM_Pattern"
 source("./Code/01_Create_BWM_Pattern.R")
 
 # 0-5 Define functions
-# 0-5-1 Get predictions for the test-set from a RF trained on train-set
+# 0-5-1 Get predictions for the 'test' from a RF trained on 'train'
 get_predicition <- function(train, test) {
-  " Get predictions from a RF-Model for 'test', whereby the RF is trained on 'train'..
+  " Get predictions from a RF-Model for 'test', whereby the RF was trained on 'train'.
     Important: > All obs. in 'test' are fully observed!
                > 'train' only consits of features that are availabe in 'test'
-                  & contains not a single NA.
-                  
-      --> Train a RF on 'train' & use this to generate predicitons for 'test' then.
+                  & contains not a single missing value
                 
     Args:
       - train  (DF): DF that only contains variables that are also availabe for 'test'.
@@ -55,7 +50,7 @@ get_predicition <- function(train, test) {
   assert_data_frame(train, any.missing = FALSE)
   assert_data_frame(test, min.rows = 1, any.missing = FALSE)
   
-  # 0-2 'train' must not contain any colnames not avaible in 'test' & vic versa
+  # 0-2 'train' must not contain any colnames not available in 'test' & vic-versa
   if (!all((colnames(train) %in% colnames(test)))) {
     stop("Train-Set has different features than the Test-Set!")
   }
@@ -66,11 +61,10 @@ get_predicition <- function(train, test) {
   
   # [1] Train a RF & create predictions for the test-set
   # 1-1 Train a RF on 'train'
-  # --1 Convert the response to a factor
+  # --1 Convert the response in'train' to a factor
   train[,'ytarget'] <- as.factor(train[,'ytarget'])
   
   # --2 Create a formula to pass to the RF 
-  #     (define response & use remaining variables as features)
   formula_all <- as.formula(paste('ytarget', " ~ ."))
   
   # --3 Fit the actual RF (only use standard-settings)
@@ -80,8 +74,8 @@ get_predicition <- function(train, test) {
   # 1-2 Get Prediciton on the testset from the RF
   predicitons <- predict(RF, test)
   
-  # 1-3 Return the predicted classes & the predicted probabilites for class '1'
-  #     aswell as the settings of the RF
+  # [2] Return the predicted classes & the predicted probabilities for class '1'
+  #     as well as the settings of the RF
   return(list('pred_classes'        = predicitons$class,
               'pred_prob_pos_class' = predicitons$predicted[,'1'],
               'RF_ntree'            = RF$ntree,
@@ -94,12 +88,13 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                          block_seed_train = 1234, block_seed_test = 1312, train_pattern = 2, 
                          train_pattern_seed = 12, test_pattern = 2) {
   "Evaluate the CC-Approach on the data 'path' points to. 
-   Remove all blocks from the train-set that are not available in the test-set! Then remove all
-   observations from the train-set that are not fully observed. On the resulting DF, a RF is trained 
-   (w/ its standard settings 'ntree', 'mtry' & 'min_node_size') & evaluated on test-set then. 
-   Finally return a DF with the the AUC, the Brier-Score and the standard metrics Precision, Recall, 
-   Sensitivity, Specificity, F-1 Score & Accuracy + all the settings for the evaluation 
-   (e.g. path, seeds, train_pattern, settings for RF, block_order, ...).
+   Remove all blocks from the train-set that are not available in the test-set! 
+   Then remove all observations from the train-set that are not fully observed. 
+   On the resulting DF, a RF is trained (w/ standard settings 'ntree', 'mtry' & 
+   'min_node_size') & evaluated on test-set then. 
+   Finally return a DF with the the AUC, the Brier-Score & the standard metrics 
+   Precision, Recall, Sensitivity, Specificity, F-1 Score & Accuracy + all the 
+   settings for the evaluation (e.g. path, seeds, train_pattern, block_order, ...).
    
    Args:
       > path               (str): Path to a dataset - must contain 'Data/Raw'
@@ -196,10 +191,10 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
 }
 
 # [1] Run the experiments                                                    ----
-# 1-1 Initalize mepty DF to store the results
+# 1-1 Initialize an empty DF to store the results
 CC_res <- data.frame()
 
-# 1-2 Define a list with the paths to the availabe DFs
+# 1-2 Define a list with the paths to the available DFs
 df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
 
 # 1-3 Loop over all the possible settings for the evaluation of the CC-Approach
@@ -209,13 +204,14 @@ for (curr_path in df_paths) {
     for (curr_test_pattern in c(1, 2, 3, 4)) {
       for (curr_repetition in c(1, 2, 3, 4, 5)) {
         
+        # Print Info to current evaluation!
         cat('-----------------------------------------------\n',
             "Current Path:          >", curr_path, '\n',
             "Current Train Pattern: >", curr_train_pattern, '\n',
             "Current Test Patter:   >", curr_test_pattern, '\n',
             "Current Repetition:    >", curr_repetition, '\n')
         
-        # Set the seed for the 'split'
+        # Set the seed for the 'split' variable
         curr_split_seed = 12345678 + curr_repetition
         
         # Set the seed for the shuffling of the blocks of train & test
