@@ -6,14 +6,15 @@ My personal contribution to the article is the implementation of various RF-appr
 
 ## Project description
 This project compares different approaches capable to deal with block-wise missingness in Multi-Omics data.  
-The approaches are either based on the random-forest or on the penalised-regression approach.   
+The approaches are either based on the random-forest or on the penalised-regression approach - this repository focuses on the random-forest based approaches.     
 
 ## Block-wise missingness:
-- Block-wise missingness is a special type of missingness that appears frequently in the context of Multi-Omics data.  For example when concatenating data from multiple clinical studies. Even though the different studies have the same target variable, the observed features can still differ! The concatenation of such datasets results then in a DF with block-wise missingness!  
+- Block-wise missingness is a special type of missingness that appears frequently in the context of Multi-Omics data. For example when concatenating data from multiple clinical studies. Even though the different studies have the same target variable, the observed features can still differ! The concatenation of such datasets results then in a DF with block-wise missingness!  
 
 - Regular model fitting on data with block-wise missingness is not directly possible for most approaches, such that either the method needs to be adjusted or the data processed! 
 
-- Besides the train-data, also the test-data can consist of block-wise missingness. Therefore the approaches must be able to deal with block-wise missing data in the test- as well as in the train-data. <br>
+- Besides the train-data, also the test-data can consist of block-wise missingness. Therefore the approaches must be able to deal with block-wise missing data in the test- as well as in the train-data.  
+<br>
 
 ### Example for data with blockwise missingness:
 Data with blockwise missingness always consists of different **folds** and **blocks**.  
@@ -40,10 +41,10 @@ Data with blockwise missingness always consists of different **folds** and **blo
 | 8   | 73.0    | 169     |         |             | 0.31    | ...   | -0.07   | 1   |
   
 ## Data   
-* The data comes from the TCGA *(The Cancer Genome Atlas)* and each dataset consits of multiple omics-blocks
+* The data comes from the The Cancer Genome Atlas *(TCGA)* and each dataset consits of multiple omics-blocks
 * The data was provided by Dr. R. Hornung, who has worked with these multi-omics data-sets already  
 * The provided data doesn't contain any missing values, such that the blockwise-missingness needs to be induced  
-* Each data-set uses the 'TP53'-Mutation as response and consits of four further  omics-blocks 'clinical', 'copy number variation', 'miRNA' & 'RNA'
+* Each data-set uses the 'TP53'-Mutation as response and consits of four further omics-blocks 'clinical', 'copy number variation', 'miRNA' & 'RNA'
 
 ## Code  
 This section contains short descriptions to the scripts in 'Code/' - there is an logical order in these scripts!  
@@ -52,24 +53,25 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
     - Get a overview to the files in 'Data/Raw'
       - do they contain all necessary blocks (clin, mirna, mutation, cnv, rna)
       - is the response 'TP53' part of the 'mutation' block
-      - the amount of features & observations
-      - amount of variables with missing values
+      - get the amount of features per block & total observations for the DF  
+      - check if there are any variables with missing values
     - Collect the amount of features per block for each DF, get the amount of
-      observations, the fraction of reponse-classes that are positive and collect
-      it all in a DF (resulting DF saved to Docs/DataInfo)
-    - Get the average amount of features, observations and positive classes in the
-      target-var over all DFs
+      observations, the fraction of pos. reponse-classes and collect it all in
+      a DF - resulting DF saved to 'Docs/raw_data_overview'  
 
 #### [2] 01_Create_BWM_Pattern.R
     - All files in data/raw are fully observed & do not contain missing values
-    - Define functions to split a DF into Test & Train-Set & induce the different
-      BWM-Pattern in the sets then 
-    - Based on the resulting data, the various approaches can be evaluated
+    - Define functions to split a DF into test- & train-Set & induce the different BWM-Pattern then 
+    - Based on the resulting data, the various approaches can be evaluated then  
 
 #### [3] 02_Complete_Case_Approach.R
-    - Evaluate the Complete-Case approach on the data with induced BWM (both Test- & Train-Set)
-    - Only use complete cases from the train-set that are observed in all blocks that are available for test
+    - Evaluate the Complete-Case approach on data with BWM (both Test- & Train-Set)
+    - Remove all blocks from the train-set that are not available in the test-set
+    - Only keep completly observed cases in the train-set & train a RF with it
+    - Use this RF to predict on the test-set then & collect common metrics (AUC, Accuracy, Precision, Recall, ...) 
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/CC_Approach'
+
+# STOPPED HERE -------------------------------------------------------------------------------------------------------------------------------------------------
 
 #### [4] 03_Single_Block_Approach.R 
     - Evaluate the Single_Block approach on the data with induced BWM (both Test- & Train-Set)
@@ -100,9 +102,9 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
 │  
 ├── Docs <- Sources, Results and everything else documenting the repository  
 │   │  
-│   ├─── Article_Versions   <- Different Versions of the article (shall be published in the end)
-│   ├─── DataInfo           <- Overview to amount of rows & features per block for each DF in Data/Raw
-│   └─── Evaluation_Results <- Results of the evaluation for all approaches
+│   ├─── Article_Versions   <- Different Versions of the article that shall be be published  
+│   ├─── raw_data_overview  <- Overview to amount of rows & features per block for each DF in Data/Raw
+│   └─── Evaluation_Results <- Results of the evaluation for all approaches (sub-folder for each approach)  
 │
 └── Code <- Code of the repository
     │
@@ -112,5 +114,5 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
     ├── 03_Single_Block_Approach.R 
     ├── 04_Imputation_Approach.R 
     ├── 05_Blockwise_Approach.R 
-    └── Example <- Templates, Examples & scripts to reproduce bugs
+    └── Example  <- Templates, Examples & scripts to reproduce bugs
 ```
