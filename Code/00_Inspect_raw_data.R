@@ -1,23 +1,20 @@
-"Get an overview to the files in 'Data/Raw'
-  > do they contain all necessary blocks 
-    (clin, mirna, mutation, cnv, rna)
-  > is the response 'TP53' part of the 'mutation' block
-  > amount of features
-  > amount of observations
-  > amount of variables with missing values
-  
-Collect the amount of features per block for each DF and collect the Info in a DF,
-then get the average amount of features & observations over all DFs.
+"Get a rought first overview to the files in 'Data/Raw'.
+ For each of the DFs in there, check the following:
+  > do they contain the necessary blocks 'clin', 'mirna', 'mutation', 'cnv' & 'rna'
+  > is 'TP53' part of the 'mutation' block (will be used as artifical response)
+  > amount of features for each of the blocks
+  > amount of observations for each DF
+??  > amount of variables with missing values  ??
 "
-# [0] SetWD, load packages, define fix variables and fuctions                ----
+# [0] SetWD, load packages, define variables and fuctions                    ----
 # 0-1 Set WD
 setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
 setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
-setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
+setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # LRZ-Server
 
 # 0-2 Load packages
 
-# 0-3 Define fixed variables
+# 0-3 Define variables
 # --1 Names of the blocks each DF should contain
 necessary_blocks <- c('clin', 'mirna', 'mutation', 'cnv', 'rna')
 
@@ -42,21 +39,21 @@ get_cols_w_NAs <- function(df) {
   }
 }
 
-# [1] Inspect the single data-frames in 'Data/Raw' & check them              ----
-#     Do they contain all necessary blocks, the response variable, ...
+# [1] Inspect each single data-frame in 'Data/Raw' & check them              ----
+#     (do they contain all necessary blocks, the response variable, ...)
 # 1-1 Get all file-names in 'Data/Raw'
 all_files <- list.files('./Data/Raw/')
 
-# 1-2 Loop over each file in 'all_files' and get infos to them
+# 1-2 Loop over each file in 'all_files' and get info to them
 for (curr_file in all_files) {
   
   # --1 Load the current file & print its name
   curr_data <- load(paste0("./Data/Raw/", curr_file))
-  cat(paste0("\n --- Current DF: >", curr_file, " ------------------------\n\n"))
+  cat(paste0("\n --- Current DF: ", curr_file, " ------------------------\n\n"))
   
   # --2 Check that it contains all necessary blocks
   # --2-1 If there is 'targetvar' in it, remove it from the blocks, as we use 
-  #       'TP53' as response (from the mutation block)
+  #       'TP53' (from the mutation block) as response 
   if ('targetvar' %in% curr_data) {
     curr_data <- curr_data[-which(curr_data == 'targetvar')]
   }
@@ -122,7 +119,7 @@ all_res <- data.frame('Data-Set' = character(),
                       'ncol_mutation' = integer(),
                       'ncol_cnv' = integer(),
                       'ncol_rna' = integer(),
-                      'fraction' = numeric())
+                      'fraction_pos_response' = numeric())
 
 # 2-3 Loop over each file in 'all_files' and get infos to them
 for (curr_file in all_files) {
@@ -149,16 +146,18 @@ for (curr_file in all_files) {
   all_res[nrow(all_res) + 1,] <- c(curr_file, c_nrow, c_ncol, fraction_positive)
 }
 
-# 2-4 Inspect the DF & get the average amount of features per block
+# 2-4 Add the average amount (e.g. cols in block 'clin') over all 13 DFs
+all_res[nrow(all_res) + 1,] <- c("Average", 
+                                 round(mean(as.numeric(all_res$nrow)), 2),
+                                 round(mean(as.numeric(all_res$ncol_clin)), 2), 
+                                 round(mean(as.numeric(all_res$ncol_mirna)), 2),
+                                 round(mean(as.numeric(all_res$ncol_mutation)), 2),
+                                 round(mean(as.numeric(all_res$ncol_cnv)), 2),
+                                 round(mean(as.numeric(all_res$ncol_rna)), 2),
+                                 round(mean(as.numeric(all_res$fraction_pos_response)), 2))
+
+# 2-5 Inspect the DF
 all_res
 
-mean(as.numeric(all_res$nrow))
-mean(as.numeric(all_res$ncol_clin))
-mean(as.numeric(all_res$ncol_mirna))
-mean(as.numeric(all_res$ncol_mutation))
-mean(as.numeric(all_res$ncol_cnv))
-mean(as.numeric(all_res$ncol_rna))
-mean(as.numeric(all_res$fraction))
-
 # 2-5 Save 'all_res' to Docs
-write.csv2(all_res, './Docs/DataInfo/Overview_to_raw_data.csv')
+write.csv2(all_res, './Docs/raw_data_overview/Overview_to_raw_data.csv')

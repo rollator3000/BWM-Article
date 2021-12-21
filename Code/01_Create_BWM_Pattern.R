@@ -1,10 +1,15 @@
-"Script to define functions to split a file in 'data/raw' into a train- and test-set
- (3:1), and then induce the various BWM-Pattern into the train- and test-set.
- 
- As the files are extremly large, the BWM needs to be induced on the fly and can
- not be saved in the repository!
+"Define functions to:
+  > Load each file from 'Data/Raw' as a single omics-dataset & process it
+    (-> such that we can use it for evaluation of the approaches)
+  > Split each DF into a train- & test-set (ratio 3:1)
+  > Seperatly shuffle the block-order of train- & test-set
+  > Induce the various BWM-Pattern seperatly into the train- & test-set then
+    (-> different block-order in test- & train-set leads to different patterns)
+  > Collect all functionalities in a single function then ('get_train_test()')
+   
+-> As the omics-files are extremly large, the BWM needs to be induced on the fly!
 "
-# [0] SetWD, load packages, define fix variables and fuctions                 ----
+# [0] SetWD, load packages, define variables & functions                    ----
 # 0-1 Set WD (currently out-commented, as we need to load the script)
 # setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
 # setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
@@ -13,11 +18,11 @@
 # 0-2 Load packages
 library(checkmate)
 
-# 0-3 Define fix variables
+# 0-3 Define variables
 
 # 0-4 Define functions
-# 0-4-1 Load the multi-omics blocks from 'Data/Raw', store each of them in a list
-#       (w/ corresponding name) and return the list!
+# 0-4-1 Load the omics blocks from 'Data/Raw', store each of them in a list 
+#       (w/ corresponding name) and return the list then!
 load_data <- function(path) {
   "Load the files 'path' points to (has to be '.Rda' in 'Data/Raw'), store them 
    in a list (with corresponding names) and return the list then!
@@ -27,18 +32,19 @@ load_data <- function(path) {
   assert_string(path, pattern = 'Data/Raw')
   assert_string(path, pattern = '.Rda')
   
-  # [1] Load the data from 'path' & store the omcis-blocks into a list 
-  # 1-1 Create a local environment (-> don't load the variables to the global env)
+  # [1] Load the data from 'path' & store the single omcis-blocks in a list 
+  # 1-1 Create a local environment & load the variables from 'path' to it.
+  #    (local env, so we don't load the variables to the global env)
   local_env <- new.env()
   load(file = path, local_env)
   
-  # 1-2 Check whether 'local_env' contains the six necessary omics-blocks 
+  # 1-2 Check that 'local_env' contains all the six omics-blocks 
   #     ("clin", "mirna", "mutation", "cnv", "rna")
   if (any(sapply(c("clin", "mirna", "mutation", "cnv", "rna"), function(x) !x %in% names(local_env)))) {
     stop('"data_path" led to a DF that does not have the six blocks ("clin", "mirna", "mutation", "cnv", "rna")')
   }
   
-  # 1-3 Store the omics-blocks into a list and return it
+  # 1-3 Store the single omics-blocks into a list & return it
   return(list('clin'     = local_env[['clin']],
               'cnv'      = local_env[['cnv']],
               'mirna'    = local_env[['mirna']],
@@ -51,8 +57,8 @@ process_loaded_data <- function(raw_data) {
   " Process the list of omics-blocks laoded with 'load_data()' & create a single
     DF from it! The processing includes:
       - extract the response 'TP53' from the mutation block
-      - remove the mutation block (not relevant any more then, as we only neeed
-                                   the response 'TP53' from this block)
+      - remove the mutation block (not relevant, as we only neeed the response 
+                                   'TP53' from this block)
       - merge the remaining blocks 'clin', 'cnv', 'rna' & 'mirna' to a single DF
       - add the response 'TP53' as 'ytarget' to the DF
 
@@ -66,15 +72,17 @@ process_loaded_data <- function(raw_data) {
         'mirna' & 'rna' (also in this order), as well as the response variable
         'ytarget'.
       > 'block_index: A vector with the index of which variable belongs to which block 
-                     (e.g. [1, 1, 2, 2, 2, 2] - > first 2-variables 1. block of block_names, 
-                                                  rest in 2. block of block_names)
+                      (e.g. [1, 1, 2, 2, 2, 2] -> first 2 variables are in the 
+                                                  first  block of 'block_names', 
+                                               -> Next 4 variables are in the 2. 
+                                                  block of 'block_names')
       > 'block_names': A vector with the names of the blocks and their order
   "
   # [0] Check Inputs
   # 0-1 'raw_data' must be a list & contain the relevant blocks
   assert_list(raw_data)
   if (any(sapply(c("clin", "mirna", "mutation", "cnv", "rna"), function(x) !x %in% names(raw_data)))) {
-    stop('"raw_data" must contain of 6 blocks ("clin", "mirna", "mutation", "cnv", "rna")')
+    stop('"raw_data" must contain of 5 blocks ("clin", "mirna", "mutation", "cnv", "rna")')
   }
   
   # 0-2 Each element in 'raw_data' must be a dataframe/ matrix
@@ -86,14 +94,18 @@ process_loaded_data <- function(raw_data) {
   # 1-1 Extract the target-variable ('TP53' from the 'mutation'-Block)
   ytarget <- raw_data$mutation[,"TP53"]
   
-  # 1-2 Merge the blocks to create a single DF & create a block index. The 
-  #     response-variable is added as 'ytarget' to the data. The mutation-block 
-  #     is removed as we extracted the response from it!
-  dataset         <- data.frame(cbind(raw_data$clin, raw_data$cnv, raw_data$mirna, 
-                                      raw_data$rna))
+  # 1-2 Merge the blocks to create a single DF & create a block index. 
+  # --1 Merge the 4 blocks (w/o mutation) to a single DF
+  dataset <- data.frame(cbind(raw_data$clin, raw_data$cnv, raw_data$mirna,
+                              raw_data$rna))
+  
+  # --2 Add 'ytarget' as response-variable to 'dataset'
   dataset$ytarget <- ytarget
-  blockind        <- rep(1:4, times = c(ncol(raw_data$clin), ncol(raw_data$cnv), 
-                                        ncol(raw_data$mirna), ncol(raw_data$rna)))
+  
+  # --3 Add the block-index for all variables from the blocks
+  #     (e.g. c(1,1,1,..) -> first 3 variables belong to 1. block in 'block_names')
+  blockind <- rep(1:4, times = c(ncol(raw_data$clin), ncol(raw_data$cnv), 
+                                 ncol(raw_data$mirna), ncol(raw_data$rna)))
   
   # [2] Return 'dataset', 'blockind' & 'block_names' in a list
   return(list('data'        = dataset,
@@ -104,11 +116,11 @@ process_loaded_data <- function(raw_data) {
 # 0-4-3 Split the data into a test- & train-set
 split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
   " Split the processed data (from 'process_loaded_data()') into a train- & 
-    test-set. 
+    test-set with ratio 3:1. 
     
     Args: 
       > data             (list): List filled with 'data', 'block_index' & 
-                                 'block_names' coming from 'process_loaded_data()'
+                                 'block_names' - from 'process_loaded_data()'
       > fraction_train (double): Fraction of observations that shall be used
                                  for the training-set. 1 - fraction_train equals
                                  the fraction of the test-set!
@@ -117,13 +129,16 @@ split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
     Return:
       > A list containing two further lists (once train, once test). Each of
         these lists is filled with: 
-        > 'data': A single DF (fully obserbed) made of the four-blocks 'clin', 
-          'cnv', 'mirna' & 'rna' (also in this order), as well as the response
-          variable 'ytarget'.
-        > 'block_index: A vector with the index of which variable belongs to  
-           which block (e.g. [1, 1, 2, 2, 2, 2] - > first 2-variables 1. block of block_names, 
-                                                    rest in 2. block of block_names)
-        > 'block_names': A vector with the names of the blocks in the correct order
+        > 'data': A single DF (fully observed) made of the four-blocks 'clin',
+                  'cnv', 'mirna' & 'rna' (also in this order), as well as the
+                  response variable 'ytarget'.
+        > 'block_index: A vector w/ the index of which variable belongs to which
+                        block 
+                       (e.g. [1, 1, 2, 2, 2, 2] -> first 2 variables are in the 
+                                                   first  block of 'block_names', 
+                                                -> Next 4 variables are in the 2. 
+                                                   block of 'block_names')
+      > 'block_names': A vector with the names of the blocks and their order
   "
   # [0] Check inputs
   # 0-1 'data' has to be list with the entrances 'data', 'block_index' & 'block_names'
@@ -151,11 +166,11 @@ split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
   
   # [1] Split the data into test- & train-set 
   #     (incl all corresponding entrances from 'block_index' & 'block_names')
-  # 1-1 Get the amount of data-points for the train-set
+  # 1-1 Get the amount of data-points from the data we use for the train-set
   amount_train = round(fraction_train * nrow(data$data))
   
-  # 1-2 Sample 'amount_train' data-points between 1-amount of observations
-  #     & get the row indeces for the test-obs aswell 
+  # 1-2 Sample 'amount_train' data-points & all those rows not in 'train_obs'
+  #     are put to the 'test_obs' (each row is either train OR test!)
   set.seed(seed)
   train_obs <- sample(1:nrow(data$data), amount_train)
   test_obs  <- which(! c(1:nrow(data$data)) %in% train_obs)
@@ -177,20 +192,22 @@ split_processed_data <- function(data, fraction_train = 0.75, seed = 1312) {
 
 # 0-4-4 Shuffle the block-order of the processed_loaded_data 
 shuffle_block_order <- function(data, seed) {
-  "Shuffle the block order of train- & test-set - created in 'split_processed_data()'.
- The order of all blocks is shuffled, except for the 'clin' block, which
- will always be the first block. But instead of shuffeling the data, we only shuffle
- the 'block_index' & 'block_names' (which we need to access the corresponding variables)
+  "Shuffle the block order of a data-set (train- OR test-set). 
+   The DFs were created in the function 'split_processed_data()'.
+   The order of all blocks is shuffled, except for the 'clin' block, which
+   will always be the first block. 
+   Instead of shuffeling the data itself, we actually only shuffle the 'block_index'
+   & 'block_names' (which are needed to access the corresponding variables)
 
-Args:
-  > data (list): List filled with 'data', 'block_index' & 'block_names' coming
-                 from 'process_loaded_data()'
-  > seed  (int): Seed to make the results reproducible
-  
-Return:
-  > The original 'data' list, but with changed block-order! For that, only
-    entrances 'block_index' & 'block_names' are updated (as these are used
-    to access the variables, hence no need to change the order in the data itself!)
+  Args:
+    > data (list): List filled with 'data', 'block_index' & 'block_names'.
+                   (Either train- or test-set coming from 'process_loaded_data()')
+    > seed  (int): Seed to make the results reproducible
+    
+  Return:
+    > The original 'data' list, but with changed block-order! For that, only
+      entrances 'block_index' & 'block_names' are updated (as these are used
+      to access the variables -> no need to change the order in the data itself!)
 "
   # [0] Check Inputs
   # 0-1 'data' has to be list with the entrances 'data', 'block_index' & 'block_names'
@@ -243,13 +260,14 @@ Return:
 # 0-4-5 Induce block-wise missingness pattern to Train
 induce_bwm_train <- function(data, pattern, seed) {
   "Induce the pattern of block-wise missingness into the train-data - 
-   totally there are 5 different patterns (1. pattern, doesn't even have bwm)!
+   totally there are 5 different patterns.
+   A vizualistion of these patterns can be found in the article itself.
   
    Args: 
     > data   (list): List filled with 'data', 'block_index' & 'block_names' 
                      coming from 'shuffle_block_order()'
     > pattern (int): Which pattern of BWM is induced into the data
-                     (must be int in [1-5])
+                     (must be an integer in [1-5])
     > seed    (int): Seed to keep results reproducible
   
    Return:
@@ -286,9 +304,9 @@ induce_bwm_train <- function(data, pattern, seed) {
     return(data)
   }
   
-  # 1-2 Pattern 2 - data is split into 2 folds, whereby one fold is 
-  #                 observed in 'clin' + 2 blocks & the other fold is 
-  #                 'clin' + 1 observed block
+  # 1-2 Pattern 2 - data is split into 2 folds, whereby:
+  #                 > 1. fold is observed in 'clin' + the 1. & 3. omics-block 
+  #                 > 2. fold is observed in 'clin' + the 2. omics-block
   if (pattern == 2) {
     
     # --1 Mix the original row order (incl. seed for reproducibility)
@@ -319,8 +337,9 @@ induce_bwm_train <- function(data, pattern, seed) {
     return(data)
   }
   
-  # 1-3 Pattern 3 - data is split into 2 folds, whereby each fold is 
-  #                 'clin' + 2 blocks
+  # 1-3 Pattern 3 - data is split into 2 folds, whereby:
+  #                 > 1. fold is observed in 'clin' + the 1. & 2. omics-block 
+  #                 > 2. fold is observed in 'clin' + the 1. & 3. omics-block
   if (pattern == 3) {
     
     # --1 Mix the original row order (incl. seed for reproducibility)
@@ -352,8 +371,10 @@ induce_bwm_train <- function(data, pattern, seed) {
     return(data)
   }
   
-  # 1-4 Pattern 4 - data is split into 3 folds, whereby each is observed in 
-  #                 'clin' and one additional block 
+  # 1-4 Pattern 4 - data is split into 3 folds, whereby:
+  #                 > 1. fold is observed in 'clin' + the 1. omics-block 
+  #                 > 2. fold is observed in 'clin' + the 2. omics-block
+  #                 > 3. fold is observed in 'clin' + the 3. omics-block
   if (pattern == 4) {
     
     # --1 Mix the original row order (incl. seed for reproducibility)
@@ -387,8 +408,9 @@ induce_bwm_train <- function(data, pattern, seed) {
     return(data)
   }
   
-  # 1-5 Pattern 5 - data is split into 8 folds, whereby each is observed
-  #                 in different combination of blocks ('clin' always!)
+  # 1-5 Pattern 5 - data is split into 8 folds, whereby each fold is observed
+  #                 in the block 'clin' and a unique combination of the 3 other 
+  #                 omcis-blocks (s. Article itself for vizualizaiotn)
   if (pattern == 5) {
     
     # --1 Mix the original row order (incl. seed for reproducibility)
@@ -430,6 +452,7 @@ induce_bwm_train <- function(data, pattern, seed) {
 induce_bwm_test <- function(data, pattern) {
   "Induce the pattern of block-wise missingness into the test-data - 
    totally there are 4 different patterns (4. pattern, doesn't even have bwm)!
+   A vizualistion of these patterns can be found in the article itself.
   
    Args: 
     > data   (list): List filled with 'data', 'block_index' & 'block_names' 
@@ -473,7 +496,7 @@ induce_bwm_test <- function(data, pattern) {
     return(data)
   }
   
-  # 1-2 Pattern 2 - Only block 1 & 2is observed
+  # 1-2 Pattern 2 - Only block 1 & 2 is observed
   if (pattern == 2) {
     
     # --1 Get the blocks & the corresponding variables that get censored
@@ -515,8 +538,8 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,  block_se
                            test_pattern = 2) {
   "Wrap up the functions from 0-4-1 to 0-4-6.
    Load the data, process it to a single DF, split it to test- & train-set, 
-   shuffle the order of the blocks in test- & train-set & induce BWM into them
-   according to 'train_pattern' & 'test_pattern'
+   seperatly shuffle the order of the blocks in test- & train-set & induce BWM
+   into them according to 'train_pattern' & 'test_pattern'
   
   Args: 
     > path               (str): Path to a dataset - must contain 'Data/Raw'
@@ -580,41 +603,3 @@ get_train_test <- function(path, frac_train = 0.75, split_seed = 1312,  block_se
   return(list('Train' = train_bwm,
               'Test'  = test_bwm))
 }
-
-# [1] Run the main function & access the observed blocks etc.                 ----
-# Currently out-commented, as we need to load the function to an other script!
-"
-# 1-1 Load & process the data, such that we can use it for evaluation of approaches
-train_test_bwm <- get_train_test(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
-                                 block_seed_train = 1312, block_seed_test  = 1234, train_pattern = 1,
-                                 train_pattern_seed = 1234, test_pattern = 2)
-
-# 1-2 Acess eveerything we need from 'Train' 
-train_tmp <- train_test_bwm$Train
-
-# --1 Access the observations that are observed in a certain block
-train_tmp$fold_index                               # get all folds
-
-# --1-1 Get all observed columns for a given fold
-# --> Fold-1 (w/ pattern 2) was observed in the blocks 1, 2 & 4
-train_tmp$block_names             # (clin, mirna, & cnv)
-fold_1     <- train_tmp$data[which(train_tmp$fold_index == 1),]
-fold1_cols <- names(which(colSums(is.na(fold_1)) == 0))
-length(fold1_cols)
-
-# --> Fold-2 (w/ pattern 2) was observed in the blocks 1 & 3
-train_tmp$block_names             # (clin, rna)
-fold_2     <- train_tmp$data[which(train_tmp$fold_index == 2),]
-fold2_cols <- names(which(colSums(is.na(fold_2)) == 0))
-length(fold2_cols)
-
-# 1-3 Access everything we need from 'Test'
-test_tmp <- train_test_bwm$Test
-
-# Test (w/ pattern 2) only consits of the first two blocks
-test_tmp$block_names  # (clin & mirna)
-
-# --1 Acces the observed blocks
-cols_wo_na <- which(colSums(is.na(test_tmp$data)) == 0)
-length(cols_wo_na)
-"
