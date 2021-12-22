@@ -42,6 +42,7 @@ TOBMI <- function(x = cpg, y = exp) {
 
 # 1-2 Altered TOBMI function with greater speed than the original function 
 #    (produces the same result as the original TOBMI function)
+#     First implemenation (before 22.12.21) had error, which was corrected by Dr. Hornung
 TOBMIfast <- function(x = cpg, y = exp) {
   
   ##Calculating the distances among un-/complete cases using auxiliary dataset
@@ -51,30 +52,23 @@ TOBMIfast <- function(x = cpg, y = exp) {
   missing_num <- length(which(complete.cases(y) == F)) 
   donors <- list()
   for(i in 1:missing_num){
-    donors[[i]] <- as.matrix(sort(dist.matrix[i,c(c(missing_num + 1):dim(x)[1])])[1 : floor(sqrt(dim(x)[1] - missing_num))])
+    tempobj <- dist.matrix[i,c(c(missing_num + 1):dim(x)[1])]
+    donors[[i]] <- as.matrix(tempobj[order(tempobj, runif(length(tempobj)))][1 : floor(sqrt(dim(x)[1] - missing_num))])
     ## NEW: If the Mahalanobis distance was zero, the weights were NaN. --> Replace
-    ## weights of zero by the smallest observed distance greater than zero:
-    donors[[i]][,1][donors[[i]][,1]==0] <- min(donors[[i]][,1][donors[[i]][,1]!=0])
+    ## distances of zero by the smallest observed distance greater than zero.
+    ## Expection: Sometimes all distances were zero. In these cases just set all distances
+    ## to 1, which corresponds to equal weights.
+    if (any(donors[[i]][,1]!=0))
+      donors[[i]][,1][donors[[i]][,1]==0] <- min(donors[[i]][,1][donors[[i]][,1]!=0])  
+    else
+      donors[[i]][,1] <- 1
   }
   
   ##Neighbors will be weighted by distance 
-  donors.w<-list()		
+  donors.w<-list()    
   for(i in 1:missing_num){
     donors.w[[i]]<-(1/donors[[i]][,1])/sum((1/donors[[i]][,1]))
   }
-  
-  # ##Imputation process
-  # for(j in 1:missing_num){
-  #   as.data.frame(donors.w[[j]])->donors.pool
-  #   row.names(donors.pool)->donors.pool$id
-  #   y$id <- row.names(y)
-  #   merge(donors.pool,y,by='id')->donors.candidates
-  #   donors.candidates[,2] * donors.candidates[,3:dim(donors.candidates)[2]]->donors.calculate
-  #   y[j,-dim(y)[2]]<-apply(donors.calculate, MARGIN = 2,sum)
-  # }
-  # imputed.data<-y[,-dim(y)[2]]
-  
-  ## NEW: Faster calculation of the above commented out part:
   
   neighbourindices <- lapply(donors.w, function(x1) sapply(names(x1), function(x2) which(rownames(y)==x2)))
   
@@ -86,6 +80,8 @@ TOBMIfast <- function(x = cpg, y = exp) {
   
   imputed.data<-y
 }
+
+
 
 # 1-3 Function to do the TOMBI-Imputation on our data:
 ImputeWithTOBMI <- function(omicsdata, blockind) {
