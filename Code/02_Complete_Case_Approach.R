@@ -211,17 +211,30 @@ for (curr_path in df_paths) {
             "Current Test Patter:   >", curr_test_pattern, '\n',
             "Current Repetition:    >", curr_repetition, '\n')
         
-        # Set the seed for the 'split' variable
-        curr_split_seed = 12345678 + curr_repetition
+        # Set an initial seed for the evaluation, by multiplying index 'curr_path'
+        # in 'df_paths' with 100 and add 'curr_repetition'
+        #   --> Different initial-seed for each DF & repetition
+        int_seed <- as.integer(which(curr_path == df_paths) * 100 + curr_repetition)
+        set.seed(int_seed)
         
-        # Set the seed for the shuffling of the blocks of train & test
-        curr_block_seed_train = 1234567 + curr_repetition
-        curr_block_seed_test  = 7654321 + curr_repetition
+        # Draw points from uniform distribution
+        seeds <- round(runif(4, 0, 100000))
         
-        # Set the seed for the train_pattern (shuffling of observations)
-        curr_train_pattern_seed = 12345 + curr_repetition
+        # Use these 'seeds' to set the four necessary seeds for the evaluation:
+        #     1. Seed to split data into test & train
+        curr_split_seed <- seeds[1]
         
-        # Run the evaluation with current settings
+        #     2. Seed to shuffle the block order in 'train'
+        curr_block_seed_train <- seeds[2]
+        
+        #     3. Seed to shuffle the block order in 'test'
+        curr_block_seed_test <- seeds[3]
+        
+        #     4. Seed for the train-pattern (assigment of obs. in train to folds)
+        curr_train_pattern_seed <- seeds[4]
+
+        # Run the evaluation with current settings- in case of error, return the 
+        # 
         curr_res <- tryCatch(eval_cc_appr(path               = curr_path, 
                                           frac_train         = 0.75, 
                                           split_seed         = curr_split_seed,
@@ -255,7 +268,9 @@ for (curr_path in df_paths) {
                              }
         ) 
         
-        # Add the curr_repetition to 'curr_res', before adding it to 'CC_res'
+        # Add the, 'int_seed', 'curr_repetition' & the approach to 'curr_res',
+        # before adding it to 'CC_res'
+        curr_res$int_seed   <- int_seed
         curr_res$repetition <- curr_repetition
         curr_res$approach   <- 'CompleteCase'
         
