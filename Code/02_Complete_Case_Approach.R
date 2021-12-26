@@ -203,8 +203,8 @@ df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
 # 1-3 Evaluate a RF on all the possible combinations of block-wise missingness
 #     patterns in train- & test-set for all DFs in 'df_paths'. Each is evaluated
 #     5-times.
-initial_seed <- 1
-for (curr_path in df_paths) {
+initial_seed <- 901
+for (curr_path in df_paths[10:13]) {
   for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
     for (curr_test_pattern in c(1, 2, 3, 4)) {
       for (curr_repetition in c(1, 2, 3, 4, 5)) {
