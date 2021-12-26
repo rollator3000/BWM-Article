@@ -1,14 +1,17 @@
 "Script to evaluate the Complete-Case approach on data with blockwise missingness
-
-  > All those blocks from the training-data that are not available in the 
-    test-data are removed
-  > Then remove all observations from the (remaining) training data that contain 
-    missing values
-  > Train a RF on the resulting DF & use it then to create predicitons for the 
-    test-set (structure of test-data has to be known before training a RF)
+ Split a DF to a train- & test-set, separately induce block-wise missingness
+ patterns to these and evaluate the CC-Approach on these then.
+ This is done 5x for each DF in './Data/Raw/' for each possible combination 
+ of blockwise missingess patterns in train- & test-set.
+ 
+ CC-Apporach:
+  > Remove ll blocks from the train-set that are not available in the test-set
+  > Remove all observations from the (remaining) train-set that contain Nas
+  > Train a RF on the resulting train-set & create predicitons for the test-set
+  > Evaluate the results with common metrics (AUC, Accuracy, F-1 Score, ...)
 "
 # [0] SetWD, load packages, define variables and functions                  ----
-# 0-1 Set WD (currently out-commented, as we need to load the script)
+# 0-1 Set WD
 setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
 setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
 setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
@@ -21,13 +24,13 @@ library(doParallel)
 library(caret)
 library(pROC)
 
-# 0-3 Define fixed variables
+# 0-3 Define variables
 
-# 0-4 Load functions from 'code/01_Create_BWM_Pattern"
+# 0-4 Define functions
+# 0-4-1 Load functions from 'code/01_Create_BWM_Pattern"
 source("./Code/01_Create_BWM_Pattern.R")
 
-# 0-5 Define functions
-# 0-5-1 Get predictions for the 'test' from a RF trained on 'train'
+# 0-4-2 Get predictions for the 'test' from a RF trained on 'train'
 get_predicition <- function(train, test) {
   " Get predictions from a RF-Model for 'test', whereby the RF was trained on 'train'.
     Important: > All obs. in 'test' are fully observed!
@@ -83,7 +86,7 @@ get_predicition <- function(train, test) {
               'RF_min_node_size'    = RF$nodesize))
 }
 
-# 0-5-2 Evaluate a RF with the complete-case approach & get its metrics
+# 0-4-3 Evaluate a RF with the complete-case approach & get its metrics
 eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
                          block_seed_train = 1234, block_seed_test = 1312, train_pattern = 2, 
                          train_pattern_seed = 12, test_pattern = 2) {
@@ -191,14 +194,16 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
 }
 
 # [1] Run the experiments                                                    ----
-# 1-1 Initialize an empty DF to store the results
+# 1-1 Initialize empty DF to store all evaluation results
 CC_res <- data.frame()
 
-# 1-2 Define a list with the paths to the available DFs
+# 1-2 Define list with paths to the DFs
 df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
 
-# 1-3 Loop over all the possible settings for the evaluation of the CC-Approach
-#     each setting is evaluated 5-times!
+# 1-3 Evaluate a RF on all the possible combinations of block-wise missingness
+#     patterns in train- & test-set for all DFs in 'df_paths'. Each is evaluated
+#     5-times.
+initial_seed <- 1
 for (curr_path in df_paths) {
   for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
     for (curr_test_pattern in c(1, 2, 3, 4)) {
@@ -211,11 +216,8 @@ for (curr_path in df_paths) {
             "Current Test Patter:   >", curr_test_pattern, '\n',
             "Current Repetition:    >", curr_repetition, '\n')
         
-        # Set an initial seed for the evaluation, by multiplying index 'curr_path'
-        # in 'df_paths' with 100 and add 'curr_repetition'
-        #   --> Different initial-seed for each DF & repetition
-        int_seed <- as.integer(which(curr_path == df_paths) * 100 + curr_repetition)
-        set.seed(int_seed)
+        # Set initial seed for the current combination evaluation-settings
+        int_seed <- initial_seed
         
         # Draw points from uniform distribution
         seeds <- round(runif(4, 0, 100000))
@@ -230,11 +232,11 @@ for (curr_path in df_paths) {
         #     3. Seed to shuffle the block order in 'test'
         curr_block_seed_test <- seeds[3]
         
-        #     4. Seed for the train-pattern (assigment of obs. in train to folds)
+        #     4. Seed for the train-pattern (assignment of obs. in train to folds)
         curr_train_pattern_seed <- seeds[4]
 
-        # Run the evaluation with current settings- in case of error, return the 
-        # 
+        # Run the evaluation with current settings- in case of error, return DF
+        # w/o '---' as metrics
         curr_res <- tryCatch(eval_cc_appr(path               = curr_path, 
                                           frac_train         = 0.75, 
                                           split_seed         = curr_split_seed,
@@ -268,8 +270,7 @@ for (curr_path in df_paths) {
                              }
         ) 
         
-        # Add the, 'int_seed', 'curr_repetition' & the approach to 'curr_res',
-        # before adding it to 'CC_res'
+        # Add the, 'int_seed', 'curr_repetition' & 'CompleteCase' to 'curr_res'
         curr_res$int_seed   <- int_seed
         curr_res$repetition <- curr_repetition
         curr_res$approach   <- 'CompleteCase'
@@ -277,6 +278,9 @@ for (curr_path in df_paths) {
         # Add the results of the setting to 'CC_res' & save it
         CC_res <- rbind(CC_res, curr_res)
         write.csv(CC_res, './Docs/Evaluation_Results/CC_Approach/CC_Eval.csv')
+        
+        # Count up initial_seed
+        initial_seed <- initial_seed + 1
       }
     }
   }
