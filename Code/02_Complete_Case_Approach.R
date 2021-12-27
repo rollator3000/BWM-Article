@@ -91,8 +91,9 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                          block_seed_train = 1234, block_seed_test = 1312, train_pattern = 2, 
                          train_pattern_seed = 12, test_pattern = 2) {
   "Evaluate the CC-Approach on the data 'path' points to. 
-   Remove all blocks from the train-set that are not available in the test-set! 
-   Then remove all observations from the train-set that are not fully observed. 
+   Load the data and split it to train- & test-set and remove all blocks from 
+   the train-set that are not available in the test-set! Then remove all 
+   observations from the remaining train-set that are not fully observed. 
    On the resulting DF, a RF is trained (w/ standard settings 'ntree', 'mtry' & 
    'min_node_size') & evaluated on test-set then. 
    Finally return a DF with the the AUC, the Brier-Score & the standard metrics 
@@ -200,11 +201,17 @@ CC_res <- data.frame()
 # 1-2 Define list with paths to the DFs
 df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
 
-# 1-3 Evaluate a RF on all the possible combinations of block-wise missingness
+# 1-3 Create a list of seeds for each single evaluation-setting
+set.seed(1234)
+count    <- 1
+allseeds <- base::sample(1000:10000000, 
+                         size = length(df_paths) * length(c(1, 2, 3, 4, 5)) * 
+                                length(c(1, 2, 3, 4)) * length(c(1, 2, 3, 4, 5)))
+
+# 1-4 Evaluate a RF on all the possible combinations of block-wise missingness
 #     patterns in train- & test-set for all DFs in 'df_paths'. Each is evaluated
 #     5-times.
-initial_seed <- 901
-for (curr_path in df_paths[10:13]) {
+for (curr_path in df_paths) {
   for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
     for (curr_test_pattern in c(1, 2, 3, 4)) {
       for (curr_repetition in c(1, 2, 3, 4, 5)) {
@@ -216,10 +223,13 @@ for (curr_path in df_paths[10:13]) {
             "Current Test Patter:   >", curr_test_pattern, '\n',
             "Current Repetition:    >", curr_repetition, '\n')
         
-        # Set initial seed for the current combination evaluation-settings
-        int_seed <- initial_seed
         
-        # Draw points from uniform distribution
+        # Get initial seed for the current combination evaluation-settings
+        int_seed <- allseeds[count]
+        count    <- count + 1
+        
+        # Set seed & draw points from uniform distribution
+        set.seed(int_seed)    
         seeds <- round(runif(4, 0, 100000))
         
         # Use these 'seeds' to set the four necessary seeds for the evaluation:
@@ -278,9 +288,6 @@ for (curr_path in df_paths[10:13]) {
         # Add the results of the setting to 'CC_res' & save it
         CC_res <- rbind(CC_res, curr_res)
         write.csv(CC_res, './Docs/Evaluation_Results/CC_Approach/CC_Eval.csv')
-        
-        # Count up initial_seed
-        initial_seed <- initial_seed + 1
       }
     }
   }
