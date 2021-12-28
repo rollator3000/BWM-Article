@@ -1,13 +1,19 @@
-"Script to evaluate the Single-Block-Case approach on data with blockwise missingness
+"Script to evaluate the Single-Block approach on data with blockwise missingness
+ Split a DF to a train- & test-set, separately induce block-wise missingness
+ patterns to these and evaluate the SB-Approach on these then.
+ This is done 5x for each DF in './Data/Raw/' for each possible combination 
+ of blockwise missingess patterns in train- & test-set.
 
-  > Use only a single block to train a RF and predict on the test-set then 
-  > 1. Remove all blocks from the training-set that are not featured in the test-set
-  > 2. Train a seperate RF on each of the blocks
-  > 3. Rate the performance of the RF with the AUC based on the out-of-bag predicitons
-  > 4. The RF with the best out-of-bag AUC is then used to predict on the test-set
+ SB-Aproach:
+  > Get the observed blocks from the test-set
+  > For each observed test-block check whether the train-set has observations
+  > For each common block of train- & test-set fit a RF 
+  > Evaluate each RF with the OOB-AUC
+  > Use the RF with the best OOB-AUC to create predicitons for the test-set then
+  > Evaluate the results with common metrics (AUC, Accuracy, F-1 Score, ...)
 "
-# [0] SetWD, load packages, define fix variables and fuctions                ----
-# 0-1 Set WD (currently out-commented, as we need to load the script)
+# [0] SetWD, load packages, define fix variables and functions                ----
+# 0-1 Set WD
 setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
 setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
 setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
@@ -20,20 +26,16 @@ library(doParallel)
 library(caret)
 library(pROC)
 
-# 0-3 Define fixed variables
-# 0-3-1 Define amount of usable cores (parallel computing)
-detectCores()
-registerDoParallel(cores = 2)
+# 0-3 Define variables
 
-# 0-4 Load functions from 'code/01_Create_BWM_Pattern"
+# 0-4 Define functions
+# 0-4-1 Load functions from 'code/01_Create_BWM_Pattern"
 source("./Code/01_Create_BWM_Pattern.R")
 
-# 0-5 Define functions
-
-# 0-5-1 Function to fit an RF & return its OOB-AUC
+# 0-4-2 Function to fit a RF & return its OOB-AUC
 fit_RF_get_oob_AUC <- function(data) {
-  "Fit an RF (with its standard settings) to 'data' ('ytarget' must be in there & is used as response).
-   Only return the oob-AUC of the fit RF.
+  "Fit an RF (with its standard settings) to 'data' ('ytarget' must be in there &
+   is used as response) - only return the oob-AUC of the fit RF.
    
    Args:
     > data (data.frame): Data with at least two columns & observations. 
@@ -45,10 +47,12 @@ fit_RF_get_oob_AUC <- function(data) {
   # [0] Check Inputs
   # 0-1 'data' has to be a DF, with at least 2 observations & w/ columns
   assert_data_frame(data, any.missing = F, min.rows = 2, min.cols = 2)
+  
+  # 0-2 'data' must contain 'ytarget' as column
   if (!'ytarget' %in% colnames(data)) stop("'data' must contain 'ytarget' as column")
   
   # [1] Fit RF on the data
-  # 1-1 Train a RF on 'train'
+  # 1-1 Train a RF
   # --1 Convert the response to a factor
   data[,'ytarget'] <- as.factor(data[,'ytarget'])
   
@@ -64,30 +68,25 @@ fit_RF_get_oob_AUC <- function(data) {
   # 2-1 Get the predicted probabilities for the oob-observations
   pred_prob_oob <- RF$predicted.oob[,'1']
   
-  # 2-2 Compare the predicited class-prob. with the true classes & calc the AUC
+  # 2-2 Compare the predicted class-prob. with the true classes & calc the AUC
   AUC <- pROC::auc(data$ytarget, pred_prob_oob, quiet = T)
   
   # 2-3 Return the AUC
   return(AUC)
 }
 
-# 5-5-2 Function to fit an RF on train & predict on test then --> get all the metrics
+# 0-4-3 Function to fit an RF on train & predict on test then --> get all the metrics
 get_predicition <- function(train, test) {
-  " Get predictions from a RF-Model for 'test', whereby the RF is trained on 'train'..
-    Important: > All obs. in 'test' are fully observed!
-               > 'train' only consits of features that are availabe in 'test'
-                  & contains not a single NA.
-                  
-      --> Train a RF on 'train' & use this to generate predicitons for 'test' then.
-                
+  " Fit a RF on 'train' and create predicitons for 'test' then 
+
     Args:
-      - train  (DF): DF that only contains variables that are also availabe for 'test'.
+      - train  (DF): DF that only contains variables also availabe for 'test'.
                      Must not contain any NA values! 
-      - test   (DF): DF that is completly observed for all its observations
+      - test   (DF): DF that is completly observed in all observations
                      
     Return:
       - List with: > 'pred_classes' = predicted class for each observation in 'test'
-                   > 'pred_prob_pos_class' = predicted probability for a obs. 
+                   > 'pred_prob_pos_class' = predicted probability for each obs. 
                                              to be in class 1
                    > settings of the RF for 'mtry', 'min_node_size' & 'ntree'
   "
@@ -96,7 +95,7 @@ get_predicition <- function(train, test) {
   assert_data_frame(train, any.missing = FALSE)
   assert_data_frame(test, min.rows = 1, any.missing = FALSE)
   
-  # 0-2 'train' must not contain any colnames not avaible in 'test' & vic versa
+  # 0-2 'train' must not contain any col-names not available in 'test' & vic versa
   if (!all((colnames(train) %in% colnames(test)))) {
     stop("Train-Set has different features than the Test-Set!")
   }
@@ -114,15 +113,15 @@ get_predicition <- function(train, test) {
   #     (define response & use remaining variables as features)
   formula_all <- as.formula(paste('ytarget', " ~ ."))
   
-  # --3 Fit the actual RF (only use standard-settings)
+  # --3 Fit the RF (use standard-settings)
   RF <- rfsrc(formula = formula_all, data = train, samptype = "swr", 
               seed = 12345678, var.used = 'all.trees')
   
-  # 1-2 Get Prediciton on the testset from the RF
+  # 1-2 Get predictions for the test-set
   predicitons <- predict(RF, test)
   
-  # 1-3 Return the predicted classes & the predicted probabilites for class '1'
-  #     aswell as the settings of the RF
+  # 1-3 Return the predicted classes & the predicted probabilities for class '1'
+  #     as well as the settings of the RF
   return(list('pred_classes'        = predicitons$class,
               'pred_prob_pos_class' = predicitons$predicted[,'1'],
               'RF_ntree'            = RF$ntree,
@@ -130,18 +129,17 @@ get_predicition <- function(train, test) {
               'RF_min_node_size'    = RF$nodesize))
 }
 
-# 0-5-3 Evaluate a RF with the complete-case approach & get its metrics
+# 0-4-4 Evaluate a RF with the complete-case approach & get its metrics
 eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
                          block_seed_train = 1234, block_seed_test = 1312, train_pattern = 2, 
                          train_pattern_seed = 12, test_pattern = 2) {
   "Evaluate the SB-Approach on the data 'path' points to.
    On each block that the test- & train-set have in commom, a seperate RF is trained & evaluated 
-   with the AUC based on the out-of-bag predictions - the RFs are trained with their standard settings
-   (e.g. 'ntree', 'mtry' & 'min_node_size'). The block that leads to the best out-of-bag AUC is then
-   used to predict on the test-set.
-   Finally return a DF with the the AUC, the Brier-Score and  the standard metrics Precision, Recall,
-   Sensitivity, Specificity, F-1 Score & Accuracy + all the settings for the evaluation 
-   (e.g. path, seeds, train_pattern, settings for RF, block_order, ...).
+   with the out-of-bag AUC- the RFs are trained with their standard settings
+   (e.g. 'ntree', 'mtry' & 'min_node_size'). The block that leads to the best out-of-bag AUC
+   is then used to predict on the test-set. Evaluate the predicitons with common metrics,
+   and return all results in a DF w/ all the settings for the evaluation 
+   (e.g. path, seeds, train_pattern, settings for RF, ...)
    
    Args:
       > path               (str): Path to a dataset - must contain 'Data/Raw'
@@ -161,7 +159,7 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   "
   # [0] Check Inputs
   #     --> All arguments are checked in the functions 'get_train_test()' &
-  #         'get_predicition()' that werde loaded from 'Code/01_Create_BWM_Pattern.R'
+  #         'get_predicition()' that were loaded from 'Code/01_Create_BWM_Pattern.R'
   
   # [1] Load the data & prepare them for the SB-Approach
   # 1-1 Load the data from 'path', split it to test- & train & induce block-wise 
@@ -175,7 +173,7 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                                    train_pattern_seed = train_pattern_seed, # Seed for the introduction of the BWM into train
                                    test_pattern = test_pattern)             # Pattern for the test-set
   
-  # 1-2 Extract the observed blocks from test & store the corresponding DFs seperatly in the list 
+  # 1-2 Extract the observed blocks from test & store the corresponding DFs separately in the list 
   #     'test_blocks' (each fully observed block is an own entry in the list w/ its block-name)
   test_blocks <- list()
   for (curr_block in train_test_bwm$Test$block_names) {
@@ -253,16 +251,18 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                       "BrierScore"         = '---'))
   }
   
-  # [2] If 'train_blocks' is not empty: Fit an RF on each block of the train-set & evaluate it with the oob-AUC
+  # [2] If 'train_blocks' is not empty: Fit an RF on each block of the train-set & evaluate it 
+  #     with the oob-AUC
   # 2-1 Loop over each block in 'train_blocks', fit an RF on it & get the corresponding oob-AUC
   res_df <- data.frame('block' = character(), 
                        'auc'   = numeric())
+  
   for (curr_train_block in names(train_blocks)) {
     
     # --1 Extract the data of the 'curr_train_block' from 'train_blocks'
     curr_data <- train_blocks[[curr_train_block]]
     
-    # --2 Get thee oob-AUC of a RF fit on 'curr_data'
+    # --2 Get the oob-AUC of a RF fit on 'curr_data'
     curr_AUC <- fit_RF_get_oob_AUC(data = curr_data)
     
     # --3 Collect 'block_name' & corresponding AUC
@@ -272,7 +272,7 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   # 2-2 Get the name of the block that led to the highest oob-AUC
   best_block <- res_df$block[which(res_df$auc == max(res_df$auc))]
   
-  # [3] Get predictions for the test-set (based on best_block) & get the corresponding metrics
+  # [3] Get predictions for the test-set (based on 'best_block') & get the corresponding metrics
   # 3-1 Train a RF on the 'best_block' of train-set & use it to predict on the test-set then!
   preds_test_set <- get_predicition(train = train_blocks[[best_block]],
                                     test = test_blocks[[best_block]])
@@ -289,7 +289,7 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                    preds_test_set$pred_prob_pos_class, quiet = T)
   
   # 3-2-3 Calculate the Brier-Score
-  brier <- mean((preds_test_set$pred_prob_pos_class - train_test_bwm$Test$data$ytarget)  ^ 2)
+  brier <- mean((preds_test_set$pred_prob_pos_class - train_test_bwm$Test$data$ytarget) ^ 2)
   
   # [3] Return the results as DF
   return(data.frame("path"               = path, 
@@ -317,7 +317,6 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                     "BrierScore"         = brier))
 }
 
-
 # [1] Run the experiments                                                    ----
 # 1-1 Initalize a empty DF to store the results
 SB_res <- data.frame()
@@ -325,28 +324,50 @@ SB_res <- data.frame()
 # 1-2 Define a list with the paths to the availabe DFs
 df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
 
-# 1-3 Loop over all the possible settings for the evaluation of the SB-Approach
-#     each setting is evaluated 5-times!
+# 1-3 Create a list of seeds for each single evaluation-setting
+set.seed(1234)
+count    <- 1
+allseeds <- base::sample(1000:10000000, 
+                         size = length(df_paths) * length(c(1, 2, 3, 4, 5)) * 
+                           length(c(1, 2, 3, 4)) * length(c(1, 2, 3, 4, 5)))
+
+# 1-4 Evaluate a RF on all the possible combinations of block-wise missingness
+#     patterns in train- & test-set for all DFs in 'df_paths'. Each is evaluated
+#     5-times.
 for (curr_path in df_paths) {
   for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
     for (curr_test_pattern in c(1, 2, 3, 4)) {
       for (curr_repetition in c(1, 2, 3, 4, 5)) {
         
+        
+        # Print Info to current evaluation!
         cat('-----------------------------------------------\n',
             "Current Path:          >", curr_path, '\n',
             "Current Train Pattern: >", curr_train_pattern, '\n',
             "Current Test Patter:   >", curr_test_pattern, '\n',
             "Current Repetition:    >", curr_repetition, '\n')
         
-        # Set the seed for the 'split'
-        curr_split_seed = 12345678 + curr_repetition
         
-        # Set the seed for the shuffling of the blocks of train & test
-        curr_block_seed_train = 1234567 + curr_repetition
-        curr_block_seed_test  = 7654321 + curr_repetition
+        # Get initial seed for the current combination evaluation-settings
+        int_seed <- allseeds[count]
+        count    <- count + 1
         
-        # Set the seed for the train_pattern (shuffling of observations)
-        curr_train_pattern_seed = 12345 + curr_repetition
+        # Set seed & draw points from uniform distribution
+        set.seed(int_seed)    
+        seeds <- round(runif(4, 0, 100000))
+        
+        # Use these 'seeds' to set the four necessary seeds for the evaluation:
+        #     1. Seed to split data into test & train
+        curr_split_seed <- seeds[1]
+        
+        #     2. Seed to shuffle the block order in 'train'
+        curr_block_seed_train <- seeds[2]
+        
+        #     3. Seed to shuffle the block order in 'test'
+        curr_block_seed_test <- seeds[3]
+        
+        #     4. Seed for the train-pattern (assignment of obs. in train to folds)
+        curr_train_pattern_seed <- seeds[4]
         
         # Run the evaluation with current settings
         curr_res <- tryCatch(eval_sb_appr(path               = curr_path, 
@@ -384,7 +405,8 @@ for (curr_path in df_paths) {
                              }
         ) 
         
-        # Add the curr_repetition to 'curr_res', before adding it to 'SB_res'
+        # Add the, 'int_seed', 'curr_repetition' & 'SingleBlock' to 'curr_res'
+        curr_res$int_seed   <- int_seed
         curr_res$repetition <- curr_repetition
         curr_res$approach   <- 'SingleBlock'
         
