@@ -386,7 +386,7 @@ for (curr_path in df_paths) {
                                           "block_seed_test"    = curr_block_seed_test, 
                                           "block_order_train_for_BWM" = '---',
                                           "block_order_test_for_BWM"  = '---',
-                                          "train_pattern"      = curr_train_pattern, 
+                                          "train_pattern"      = curr_train_pattern,
                                           "train_pattern_seed" = curr_train_pattern_seed, 
                                           "test_pattern"       = curr_test_pattern,
                                           "common_blocks"      = "---",
