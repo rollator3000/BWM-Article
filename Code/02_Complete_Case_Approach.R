@@ -64,7 +64,7 @@ get_predicition <- function(train, test) {
   
   # [1] Train a RF & create predictions for the test-set
   # 1-1 Train a RF on 'train'
-  # --1 Convert the response in'train' to a factor
+  # --1 Convert the response in 'train' to a factor
   train[,'ytarget'] <- as.factor(train[,'ytarget'])
   
   # --2 Create a formula to pass to the RF 
@@ -148,6 +148,31 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   # 1-3-2 Remove all observations from the train-set with missing values
   train_test_bwm$Train$data <- train_test_bwm$Train$data[complete.cases(train_test_bwm$Train$data), ]
   
+  # 1-4 Ensure that the train-set still contains observations, if not return results w/o metrics
+  if (nrow(train_test_bwm$Train$data) <= 0) {
+    return(data.frame("path"               = path, 
+                      "frac_train"         = frac_train, 
+                      "split_seed"         = split_seed, 
+                      "block_seed_train"   = block_seed_train,
+                      "block_seed_test"    = block_seed_test, 
+                      "block_order_train_for_BWM" = paste(train_test_bwm$Train$block_names, collapse = ' - '),
+                      "block_order_test_for_BWM"  = paste(train_test_bwm$Test$block_names, collapse = ' - '),
+                      "train_pattern"      = train_pattern, 
+                      "train_pattern_seed" = train_pattern_seed, 
+                      "test_pattern"       = test_pattern, 
+                      "ntree"              = '---', 
+                      "mtry"               = '---', 
+                      "min_node_size"      = '---', 
+                      "AUC"                = '---',
+                      "Accuracy"           = '---', 
+                      "Sensitivity"        = '---', 
+                      "Specificity"        = '---', 
+                      "Precision"          = '---', 
+                      "Recall"             = '---', 
+                      "F1"                 = '---', 
+                      "BrierScore"         = '---'))
+  }
+  
   # --> Test- & Train-Set consist of the same columns & all obs. are fully observed in it 
   
   # [2] Train & evaluate a RF (with its standard-settings) 
@@ -223,7 +248,6 @@ for (curr_path in df_paths) {
             "Current Test Patter:   >", curr_test_pattern, '\n',
             "Current Repetition:    >", curr_repetition, '\n')
         
-        
         # Get initial seed for the current combination evaluation-settings
         int_seed <- allseeds[count]
         count    <- count + 1
@@ -259,7 +283,7 @@ for (curr_path in df_paths) {
                                data.frame("path"               = curr_path, 
                                           "frac_train"         = 0.75, 
                                           "split_seed"         = curr_split_seed, 
-                                          "block_seed_train"   = curr_block_seed_test,
+                                          "block_seed_train"   = curr_block_seed_train,
                                           "block_seed_test"    = curr_block_seed_test, 
                                           "block_order_train_for_BWM" = '---',
                                           "block_order_test_for_BWM"  = '---',

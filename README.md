@@ -43,7 +43,7 @@ Data with blockwise missingness always consists of different **folds** and **blo
 ## Data   
 * The data comes from the The Cancer Genome Atlas *(TCGA)* and each dataset consits of multiple omics-blocks
 * The data was provided by Dr. R. Hornung, who has worked with these multi-omics data-sets already  
-* The provided data doesn't contain any missing values, such that the blockwise-missingness needs to be induced  
+* The provided data doesn't contain any missing values, such that the blockwise-missingness needs to be induced manually   
 * Each data-set uses the 'TP53'-Mutation as response and consits of four further omics-blocks 'clinical', 'copy number variation', 'miRNA' & 'RNA'
 
 ## Code  
@@ -60,35 +60,39 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
       a DF - resulting DF saved to 'Docs/raw_data_overview'  
 
 #### [2] 01_Create_BWM_Pattern.R
-    - All files in data/raw are fully observed & do not contain missing values
-    - Define functions to split a DF into test- & train-Set & induce the different BWM-Pattern then 
+    - All files in data/raw are fully observed & do not contain missing values  
+    - Define functions, to load the data, split it to test- & train-Set & induce the different BWM-Pattern then  
     - Based on the resulting data, the various approaches can be evaluated then  
 
 #### [3] 02_Complete_Case_Approach.R
-    - Evaluate the Complete-Case approach on data with BWM (both Test- & Train-Set)
+    - Evaluate the Complete-Case approach on data with BWM  
     - Remove all blocks from the train-set that are not available in the test-set
     - Only keep completly observed cases in the train-set & train a RF with it
     - Use this RF to predict on the test-set then & collect common metrics (AUC, Accuracy, Precision, Recall, ...) 
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/CC_Approach'
 
-# STOPPED HERE -------------------------------------------------------------------------------------------------------------------------------------------------
-
 #### [4] 03_Single_Block_Approach.R 
-    - Evaluate the Single_Block approach on the data with induced BWM (both Test- & Train-Set)
-    - Fit an RF on each single block train- & test-set have in common. The RF with the highest oob-AUC
-      is used to predict on the test-set set.
+    - Evaluate the Single_Block approach on the data with BWM   
+    - Fit a seperate RF on each block that train- & test-set have in common
+    - Evaluate each of these RFs with the oob-AUC 
+    - Use the RF with the highest oob-AUC to predict on the test-set set then & collect common metrics (AUC, Accuracy, Precision, Recall, ...)  
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/SB_Approach'
 
 #### [5] 04_Imputation_Approach.R 
-    - Evaluate the Imputation approach on the data with induced BWM (both Test- & Train-Set)
-    - Impute the BWM-Missing values in the train-set with TOBMI-Imputation & train a RF on it then
+    - Evaluate the Imputation approach on the data with BWM 
+    - Impute the missing values in the train-set with the TOBMI-Imputation method
+    - Remove all blocks from the imputed data that are not available in the test-set
+    - Train a RF on the remaining train-set 
+    - Use this RF to predict on the test-set then & collect common metrics (AUC, Accuracy, Precision, Recall, ...) 
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/IMP_Approach'
 
 #### [6] 05_Blockwise_Approach.R 
-    - Evaluate the Blockmwise approach on the data with induced BWM (both Test- & Train-Set)
-    - Fit a RF seperatly on each block of the train data that test & train have in common
-    - Weight the final predicitons on the test-set with the oob-AUC of the block-wise RFs 
-      to obtain predicitons on the test-set
+    - Evaluate the Blockmwise approach on the data with BWM 
+    - Fit a RF seperatly on each block that train- & test-set have in common 
+    - Evaluate each RF internally with the oob-AUC
+    - Predict on the test-set, by creating a weighted average of the predicitons from the block-wise fitted RFs 
+    - Use the oob-AUC for weighting the predicitons of the block-wise fitted RFs 
+    - Based on predicted & true classes, calculate common metrics (AUC, Accuracy, Precision, Recall, ...) 
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/BW_Approach'
 
 ## Folder-Structure  
@@ -102,7 +106,7 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
 │  
 ├── Docs <- Sources, Results and everything else documenting the repository  
 │   │  
-│   ├─── Article_Versions   <- Different Versions of the article that shall be be published  
+│   ├─── Article_Versions   <- Different Versions of the article 
 │   ├─── raw_data_overview  <- Overview to amount of rows & features per block for each DF in Data/Raw
 │   └─── Evaluation_Results <- Results of the evaluation for all approaches (sub-folder for each approach)  
 │
