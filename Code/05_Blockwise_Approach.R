@@ -27,7 +27,7 @@ library(doParallel)
 library(caret)
 library(pROC)
 
-# 0-3 Define fixed variables
+# 0-3 Define variables
 
 # 0-4 Define functions
 # 0-4-1 Load functions from 'code/01_Create_BWM_Pattern"
