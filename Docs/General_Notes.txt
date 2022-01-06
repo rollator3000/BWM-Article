@@ -1,0 +1,14 @@
+General Notes:
+
+
+> Prediciton Error in CC-Approach:
+
+	 levels of factors in test data do not match those in training data
+
+	--> Solution from StackOverFlow:
+		--> Try this solution on the setting:
+			-  Train-Set-Pattern 5 & Test-Set-Pattern 3 & int_seed 3097050 
+
+	This happens because your factor variables in training set and test set have different levels(to be more precise test set doesn't have some of the levels present in training). So you can solve this for example by using below code for all your factor variables.:
+
+		> levels(test$SectionName) <- levels(train$SectionName)
