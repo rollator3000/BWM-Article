@@ -95,6 +95,10 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
     - Based on predicted & true classes, calculate common metrics (AUC, Accuracy, Precision, Recall, ...) 
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/BW_Approach'
 
+#### [7] 06_check_eval_results.R  
+    - Check the qulaity of the evaluation results 
+    - Ensure there are not unexpected results due to unexpected behavior
+
 ## Folder-Structure  
 ```
 ├── README.md <- Top-level README for devs working with this repository
@@ -118,5 +122,6 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
     ├── 03_Single_Block_Approach.R 
     ├── 04_Imputation_Approach.R 
     ├── 05_Blockwise_Approach.R 
+    ├── 06_check_eval_results.R
     └── Example  <- Templates, Examples & scripts to reproduce bugs
 ```
