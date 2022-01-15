@@ -50,5 +50,20 @@ if (!col_check) {
 }
 
 # 1-3 Ensure all DFs have the same settings for their evaluation
-# 1-3-1 
+# 1-3-1 Ensure the values for a given evaluation-settings are identical in all DFs
+# ----1 Get all columns w/ settings for the evaluation
+eval_set_cols <- nec_cols[c(1:5, 8:10, 19:20)]
 
+# ----2 Get the settings of each approach as a single vector
+settings_cc <- sapply(1:nrow(cc_res), 
+                      function(x) paste(cc_res[x,eval_set_cols], collapse = " - "))
+settings_bw <- sapply(1:nrow(bw_res), 
+                      function(x) paste(bw_res[x,eval_set_cols], collapse = " - "))
+settings_sb <- sapply(1:nrow(sb_res), 
+                      function(x) paste(sb_res[x,eval_set_cols], collapse = " - "))
+settings_imp <- sapply(1:nrow(imp_res), 
+                       function(x) paste(imp_res[x,eval_set_cols], collapse = " - "))
+
+# ----3 Ensure the settings are the same
+which(settings_cc != settings_bw)
+# --> Wrong seeds entered with CC-approach...
