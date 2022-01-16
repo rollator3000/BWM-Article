@@ -52,9 +52,6 @@ get_predicition <- function(train, test) {
   
   # [1] Train a RF & create predictions for the test-set
   # 1-1 Train a RF on 'train'
-  # --1 Convert the response in 'train' to a factor
-  train[,'ytarget'] <- as.factor(train[,'ytarget'])
-  
   # --2 Create a formula to pass to the RF 
   formula_all <- as.formula(paste('ytarget', " ~ ."))
   
@@ -63,19 +60,8 @@ get_predicition <- function(train, test) {
               seed = 12345678, var.used = 'all.trees')
   
   # 1-2 Get predicitons on the test-set
-  # 1-2-1 Make the prediction-call & ensure there is no error:
-  error <- tryCatch(expr = predict(RF, test),
-                    error = function(e) as.character(e),
-                    warning = function(w) as.character(w))
-  
-  # 1-2-2 If the 'levels error' appears, fix the levels of test:
-  grepl(error, 'levels of factors')
-  test <- rbind(train[1, ], test) # OB8 supress the warning here
-  test <- test[-1,]
-  
-  # 1-2-3 Else, run the function 'predict(RF, test)' casually
-  predict(RF, test)
-  
+  predicitons <- predict(RF, test)
+
   # [2] Return the predicted classes & the predicted probabilities for class '1'
   #     as well as the settings of the RF
   return(list('pred_classes'        = predicitons$class,
@@ -185,7 +171,7 @@ AUC <- pROC::auc(factor(train_test_bwm$Test$data$ytarget, levels = c(0, 1)),
                  preds_test_set$pred_prob_pos_class, quiet = T)
 
 # --2-2-3 Calculate the Brier-Score
-brier <- mean((preds_test_set$pred_prob_pos_class - train_test_bwm$Test$data$ytarget)  ^ 2)
+brier <- mean((preds_test_set$pred_prob_pos_class - train_test_bwm$Test$data$ytarget) ^ 2)
 
 # --3 Return the results as DF
 return(data.frame("path"               = path, 
