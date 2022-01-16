@@ -99,8 +99,8 @@ process_loaded_data <- function(raw_data) {
   dataset <- data.frame(cbind(raw_data$clin, raw_data$cnv, raw_data$mirna,
                               raw_data$rna))
   
-  # --2 Add 'ytarget' as response-variable to 'dataset'
-  dataset$ytarget <- ytarget
+  # --2 Add 'ytarget' as response-variable of type factor to 'dataset'
+  dataset$ytarget <- as.factor(ytarget)
   
   # --3 Add the block-index for all variables from the blocks
   #     (e.g. c(1,1,1,..) -> first 3 variables belong to 1. block in 'block_names')
