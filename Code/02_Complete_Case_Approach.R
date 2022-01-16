@@ -64,17 +64,14 @@ get_predicition <- function(train, test) {
   
   # [1] Train a RF & create predictions for the test-set
   # 1-1 Train a RF on 'train'
-  # --1 Convert the response in 'train' to a factor
-  train[,'ytarget'] <- as.factor(train[,'ytarget'])
-  
-  # --2 Create a formula to pass to the RF 
+  # --1 Create a formula to pass to the RF 
   formula_all <- as.formula(paste('ytarget', " ~ ."))
   
-  # --3 Fit the actual RF (only use standard-settings)
+  # --2 Fit the actual RF (only use standard-settings)
   RF <- rfsrc(formula = formula_all, data = train, samptype = "swr", 
               seed = 12345678, var.used = 'all.trees')
   
-  # 1-2 Get Prediciton on the testset from the RF
+  # 1-2 Get prediction on the test-set from the RF
   predicitons <- predict(RF, test)
   
   # [2] Return the predicted classes & the predicted probabilities for class '1'
