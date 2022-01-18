@@ -145,8 +145,11 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   # 1-3-2 Remove all observations from the train-set with missing values
   train_test_bwm$Train$data <- train_test_bwm$Train$data[complete.cases(train_test_bwm$Train$data), ]
   
-  # 1-4 Ensure that the train-set still contains observations, if not return results w/o metrics
-  if (nrow(train_test_bwm$Train$data) <= 0 | ) {
+  # 1-4 Check if the Train-Set is still usable to fit a RF on it:
+  #     - If it hasn't any rows left OR
+  #     - all observations have the same response
+  #     --> return a DF with the same lay-out as the result-DF, but w/o Metrics! 
+  if (nrow(train_test_bwm$Train$data) <= 0 | length(unique(train_test_bwm$Train$data$ytarget)) == 1) {
     return(data.frame("path"               = path, 
                       "frac_train"         = frac_train, 
                       "split_seed"         = split_seed, 
