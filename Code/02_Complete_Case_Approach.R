@@ -6,7 +6,7 @@
  
  CC-Apporach:
   > Remove ll blocks from the train-set that are not available in the test-set
-  > Remove all observations from the (remaining) train-set that contain Nas
+  > Remove all observations from the (remaining) train-set that contain NAs
   > Train a RF on the resulting train-set & create predicitons for the test-set
   > Evaluate the results with common metrics (AUC, Accuracy, F-1 Score, ...)
 "
@@ -19,8 +19,6 @@ setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
 # 0-2 Load packages
 library(checkmate)
 library(randomForestSRC)
-library(parallel)
-library(doParallel)
 library(caret)
 library(pROC)
 
@@ -30,7 +28,7 @@ library(pROC)
 # 0-4-1 Load functions from 'code/01_Create_BWM_Pattern"
 source("./Code/01_Create_BWM_Pattern.R")
 
-# 0-4-2 Get predictions for the 'test' from a RF trained on 'train'
+# 0-4-2 Get predictions for 'test' from a RF trained on 'train'
 get_predicition <- function(train, test) {
   " Get predictions from a RF-Model for 'test', whereby the RF was trained on 'train'.
     Important: > All obs. in 'test' are fully observed!
@@ -88,11 +86,13 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                          block_seed_train = 1234, block_seed_test = 1312, train_pattern = 2, 
                          train_pattern_seed = 12, test_pattern = 2) {
   "Evaluate the CC-Approach on the data 'path' points to. 
-   Load the data and split it to train- & test-set and remove all blocks from 
+   Load the data, split it to train- & test-set and remove all blocks from 
    the train-set that are not available in the test-set! Then remove all 
    observations from the remaining train-set that are not fully observed. 
-   On the resulting DF, a RF is trained (w/ standard settings 'ntree', 'mtry' & 
-   'min_node_size') & evaluated on test-set then. 
+   In case there are no obs. in the train-set, OR the obs. all have the same 
+   reponse class, return a DF w/ settings to evaluation, but w/o metrics.
+   In case the train-set is fine, a RF is trained (w/ standard settings 'ntree', 
+   'mtry' & 'min_node_size') & evaluated on test-set then. 
    Finally return a DF with the the AUC, the Brier-Score & the standard metrics 
    Precision, Recall, Sensitivity, Specificity, F-1 Score & Accuracy + all the 
    settings for the evaluation (e.g. path, seeds, train_pattern, block_order, ...).
@@ -146,7 +146,7 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   train_test_bwm$Train$data <- train_test_bwm$Train$data[complete.cases(train_test_bwm$Train$data), ]
   
   # 1-4 Ensure that the train-set still contains observations, if not return results w/o metrics
-  if (nrow(train_test_bwm$Train$data) <= 0) {
+  if (nrow(train_test_bwm$Train$data) <= 0 | ) {
     return(data.frame("path"               = path, 
                       "frac_train"         = frac_train, 
                       "split_seed"         = split_seed, 
