@@ -75,9 +75,9 @@ get_predicition <- function(train, test) {
 # 1-1 Set arguments
 path          = './Data/Raw/ESCA.Rda'
 frac_train    = 0.75
-train_pattern = 5
+train_pattern = 2
 test_pattern  = 3
-int_seed      = 3097050
+int_seed      = 123
 
 # 1-2 Get seeds for the split of train- & test-set, shuffeling block-order, ...
 set.seed(int_seed)    
@@ -162,8 +162,7 @@ preds_test_set <- get_predicition(train = train_test_bwm$Train$data,
 # --2-2 Calculate the metrics based on the true & predicted labels
 # --2-2-1  Confusion Matrix & all corresponding metrics (Acc, F1, Precision, ....)
 metrics_1 <- caret::confusionMatrix(preds_test_set$pred_classes, 
-                                    factor(train_test_bwm$Test$data$ytarget, 
-                                           levels = c(0, 1)),
+                                    train_test_bwm$Test$data$ytarget,
                                     positive = "1")
 
 # --2-2-2 Calculate the AUC
@@ -171,7 +170,7 @@ AUC <- pROC::auc(factor(train_test_bwm$Test$data$ytarget, levels = c(0, 1)),
                  preds_test_set$pred_prob_pos_class, quiet = T)
 
 # --2-2-3 Calculate the Brier-Score
-brier <- mean((preds_test_set$pred_prob_pos_class - train_test_bwm$Test$data$ytarget) ^ 2)
+brier <- mean((preds_test_set$pred_prob_pos_class - as.numeric(levels(train_test_bwm$Test$data$ytarget))[train_test_bwm$Test$data$ytarget]) ^ 2)
 
 # --3 Return the results as DF
 return(data.frame("path"               = path, 

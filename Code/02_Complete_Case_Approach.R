@@ -184,8 +184,7 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   # 2-2 Calculate the metrics based on the true & predicted labels
   # 2-2-1  Confusion Matrix & all corresponding metrics (Acc, F1, Precision, ....)
   metrics_1 <- caret::confusionMatrix(preds_test_set$pred_classes, 
-                                      factor(train_test_bwm$Test$data$ytarget, 
-                                             levels = c(0, 1)),
+                                      train_test_bwm$Test$data$ytarget,
                                       positive = "1")
   
   # 2-2-2 Calculate the AUC
@@ -193,7 +192,7 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                    preds_test_set$pred_prob_pos_class, quiet = T)
   
   # 2-2-3 Calculate the Brier-Score
-  brier <- mean((preds_test_set$pred_prob_pos_class - train_test_bwm$Test$data$ytarget)  ^ 2)
+  brier <- mean((preds_test_set$pred_prob_pos_class - as.numeric(levels(train_test_bwm$Test$data$ytarget))[train_test_bwm$Test$data$ytarget]) ^ 2)
   
   # [3] Return the results as DF
   return(data.frame("path"               = path, 
