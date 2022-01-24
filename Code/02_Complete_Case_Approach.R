@@ -188,7 +188,7 @@ eval_cc_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                                       positive = "1")
   
   # 2-2-2 Calculate the AUC
-  AUC <- pROC::auc(factor(train_test_bwm$Test$data$ytarget, levels = c(0, 1)), 
+  AUC <- pROC::auc(train_test_bwm$Test$data$ytarget, 
                    preds_test_set$pred_prob_pos_class, quiet = T)
   
   # 2-2-3 Calculate the Brier-Score
