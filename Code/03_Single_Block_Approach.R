@@ -5,10 +5,8 @@
  of blockwise missingess patterns in train- & test-set.
 
  SB-Aproach:
-  > Get the observed blocks from the test-set
-  > For each observed test-block check whether the train-set has observations
-  > For each common block of train- & test-set fit a RF 
-  > Evaluate each RF with the OOB-AUC
+  > For each common observed block of train- & test-set fit a RF 
+  > Evaluate each block-wise fitted RF with its OOB-AUC
   > Use the RF with the best OOB-AUC to create predicitons for the test-set then
   > Evaluate the results with common metrics (AUC, Accuracy, F-1 Score, ...)
 "
@@ -21,8 +19,6 @@ setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
 # 0-2 Load packages
 library(checkmate)
 library(randomForestSRC)
-library(parallel)
-library(doParallel)
 library(caret)
 library(pROC)
 
@@ -42,7 +38,8 @@ fit_RF_get_oob_AUC <- function(data) {
                          Must contain the column 'ytarget' & no missing values.
                          
    Return:
-    > Return the AUC-metric that was calculated based on the oob-observations of the RF
+    > Return the AUC-metric that was calculated based on the oob-observations of 
+      the RF - in case this fails return 0
   "
   # [0] Check Inputs
   # 0-1 'data' has to be a DF, with at least 2 observations & w/ columns
@@ -53,14 +50,11 @@ fit_RF_get_oob_AUC <- function(data) {
   
   # [1] Fit RF on the data
   # 1-1 Train a RF
-  # --1 Convert the response to a factor
-  data[,'ytarget'] <- as.factor(data[,'ytarget'])
-  
-  # --2 Create a formula to pass to the RF 
+  # --1 Create a formula to pass to the RF 
   #     (define response & use remaining variables as features)
   formula_all <- as.formula(paste('ytarget', " ~ ."))
   
-  # --3 Fit the actual RF (only use standard-settings)
+  # --2 Fit the actual RF (only use standard-settings)
   RF <- rfsrc(formula = formula_all, data = data, samptype = "swr", 
               seed = 12345678, var.used = 'all.trees')
   
@@ -69,19 +63,21 @@ fit_RF_get_oob_AUC <- function(data) {
   pred_prob_oob <- RF$predicted.oob[,'1']
   
   # 2-2 Compare the predicted class-prob. with the true classes & calc the AUC
-  AUC <- pROC::auc(data$ytarget, pred_prob_oob, quiet = T)
+  #  -> in case RF predict all OOB as 0/ 1 error will arise -> set AUC to 0
+  AUC <- tryCatch(expr = pROC::auc(data$ytarget, pred_prob_oob, quiet = T),
+                  error = function(c) 0)
   
   # 2-3 Return the AUC
   return(AUC)
 }
 
-# 0-4-3 Function to fit an RF on train & predict on test then --> get all the metrics
+# 0-4-3 Function to fit an RF on train & predict on test then 
 get_predicition <- function(train, test) {
   " Fit a RF on 'train' and create predicitons for 'test' then 
 
     Args:
-      - train  (DF): DF that only contains variables also availabe for 'test'.
-                     Must not contain any NA values! 
+      - train  (DF): DF that only contains variables also availabe for 'test' -
+                     both must contain 'ytarget'
       - test   (DF): DF that is completly observed in all observations
                      
     Return:
@@ -106,14 +102,11 @@ get_predicition <- function(train, test) {
   
   # [1] Train a RF & create predictions for the test-set
   # 1-1 Train a RF on 'train'
-  # --1 Convert the response to a factor
-  train[,'ytarget'] <- as.factor(train[,'ytarget'])
-  
-  # --2 Create a formula to pass to the RF 
+  # --1 Create a formula to pass to the RF 
   #     (define response & use remaining variables as features)
   formula_all <- as.formula(paste('ytarget', " ~ ."))
   
-  # --3 Fit the RF (use standard-settings)
+  # --2 Fit the RF (use standard-settings)
   RF <- rfsrc(formula = formula_all, data = train, samptype = "swr", 
               seed = 12345678, var.used = 'all.trees')
   
@@ -139,7 +132,7 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
    (e.g. 'ntree', 'mtry' & 'min_node_size'). The block that leads to the best out-of-bag AUC
    is then used to predict on the test-set. Evaluate the predicitons with common metrics,
    and return all results in a DF w/ all the settings for the evaluation 
-   (e.g. path, seeds, train_pattern, settings for RF, ...)
+   (e.g. path, seeds, train_pattern, settings for RF, best oob-block, ...)
    
    Args:
       > path               (str): Path to a dataset - must contain 'Data/Raw'
@@ -229,7 +222,7 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
     return(data.frame("path"               = curr_path, 
                       "frac_train"         = 0.75, 
                       "split_seed"         = curr_split_seed, 
-                      "block_seed_train"   = curr_block_seed_test,
+                      "block_seed_train"   = curr_block_seed_train,
                       "block_seed_test"    = curr_block_seed_test, 
                       "block_order_train_for_BWM" = paste(train_test_bwm$Train$block_names, collapse = ' - '),
                       "block_order_test_for_BWM"  = paste(train_test_bwm$Train$block_names, collapse = ' - '),
@@ -237,6 +230,7 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                       "train_pattern_seed" = curr_train_pattern_seed, 
                       "test_pattern"       = curr_test_pattern,
                       "common_blocks"      = "---",
+                      "block_best_oob"     = "---",
                       "block_best_oob_auc" = "---",
                       "ntree"              = '---', 
                       "mtry"               = '---', 
@@ -251,8 +245,8 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                       "BrierScore"         = '---'))
   }
   
-  # [2] If 'train_blocks' is not empty: Fit an RF on each block of the train-set & evaluate it 
-  #     with the oob-AUC
+  # [2] If 'train_blocks' is not empty: Fit an RF on each block of the train-set & evaluate them 
+  #     with their OOB-AUC
   # 2-1 Loop over each block in 'train_blocks', fit an RF on it & get the corresponding oob-AUC
   res_df <- data.frame('block' = character(), 
                        'auc'   = numeric())
@@ -272,6 +266,11 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   # 2-2 Get the name of the block that led to the highest oob-AUC
   best_block <- res_df$block[which(res_df$auc == max(res_df$auc))]
   
+  # 2-3 In case 'best_block' has more than one entrance, randomly sample one
+  #     (this might happen due to multiple RFs with the same oob-AUC in 2-1)
+  set.seed(block_seed_train)
+  if (length(best_block) > 1) best_block <- sample(best_block, 1)
+  
   # [3] Get predictions for the test-set (based on 'best_block') & get the corresponding metrics
   # 3-1 Train a RF on the 'best_block' of train-set & use it to predict on the test-set then!
   preds_test_set <- get_predicition(train = train_blocks[[best_block]],
@@ -280,16 +279,15 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
   # 3-2 Calculate the metrics based on the true & predicted labels
   # 3-2-1  Confusion Matrix & all corresponding metrics (Acc, F1, Precision, ....)
   metrics_1 <- caret::confusionMatrix(preds_test_set$pred_classes, 
-                                      factor(train_test_bwm$Test$data$ytarget, 
-                                             levels = c(0, 1)),
+                                      train_test_bwm$Test$data$ytarget, 
                                       positive = "1")
   
   # 3-2-2 Calculate the AUC
-  AUC <- pROC::auc(factor(train_test_bwm$Test$data$ytarget, levels = c(0, 1)), 
+  AUC <- pROC::auc(train_test_bwm$Test$data$ytarget, 
                    preds_test_set$pred_prob_pos_class, quiet = T)
   
   # 3-2-3 Calculate the Brier-Score
-  brier <- mean((preds_test_set$pred_prob_pos_class - train_test_bwm$Test$data$ytarget) ^ 2)
+  brier <- mean((preds_test_set$pred_prob_pos_class - as.numeric(levels(train_test_bwm$Test$data$ytarget))[train_test_bwm$Test$data$ytarget]) ^ 2)
   
   # [3] Return the results as DF
   return(data.frame("path"               = path, 
@@ -303,7 +301,8 @@ eval_sb_appr <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_
                     "train_pattern_seed" = train_pattern_seed, 
                     "test_pattern"       = test_pattern, 
                     "common_blocks"      = paste(names(train_blocks), collapse = ' - '),
-                    "block_best_oob_auc" = best_block,
+                    "block_best_oob"     = best_block,
+                    "block_best_oob_auc" = res_df$auc[res_df$block == best_block],
                     "ntree"              = preds_test_set$RF_ntree, 
                     "mtry"               = preds_test_set$RF_mtry, 
                     "min_node_size"      = preds_test_set$RF_min_node_size, 
@@ -390,6 +389,7 @@ for (curr_path in df_paths) {
                                           "train_pattern_seed" = curr_train_pattern_seed, 
                                           "test_pattern"       = curr_test_pattern,
                                           "common_blocks"      = "---",
+                                          "block_best_oob"     = "---",
                                           "block_best_oob_auc" = "---",
                                           "ntree"              = '---', 
                                           "mtry"               = '---', 
