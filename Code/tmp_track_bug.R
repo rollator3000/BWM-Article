@@ -222,6 +222,7 @@ if (length(names(train_blocks)) <= 0) {
                     "train_pattern_seed" = curr_train_pattern_seed, 
                     "test_pattern"       = curr_test_pattern,
                     "common_blocks"      = "---",
+                    "block_best_oob"     = "---",
                     "block_best_oob_auc" = "---",
                     "ntree"              = '---', 
                     "mtry"               = '---', 
@@ -274,7 +275,7 @@ metrics_1 <- caret::confusionMatrix(preds_test_set$pred_classes,
                                     positive = "1")
 
 # 3-2-2 Calculate the AUC
-AUC <- pROC::auc(train_test_bwm$Test$data$ytarge, 
+AUC <- pROC::auc(train_test_bwm$Test$data$ytarget, 
                  preds_test_set$pred_prob_pos_class, quiet = T)
 
 # 3-2-3 Calculate the Brier-Score
