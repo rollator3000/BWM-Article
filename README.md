@@ -80,7 +80,7 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
     - Evaluate the Single_Block approach on the data with BWM   
     - Fit a seperate RF on each block that train- & test-set have in common
     - Evaluate each of these RFs with the oob-AUC 
-    - Use the RF with the highest oob-AUC to predict on the test-set set then & collect common metrics (AUC, Accuracy, Precision, Recall, ...)  
+    - Use the RF with the highest oob-AUC to predict on the test-set set then & collect common metrics (AUC, Accuracy, ...)  
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/SB_Approach'
 
 #### [5] 04_Imputation_Approach.R 
