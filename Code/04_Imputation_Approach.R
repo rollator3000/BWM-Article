@@ -21,8 +21,6 @@ setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
 # 0-2 Load packages
 library(checkmate)
 library(randomForestSRC)
-library(parallel)
-library(doParallel)
 library(caret)
 library(pROC)
 
@@ -71,7 +69,6 @@ TOBMIfast <- function(x = cpg, y = exp) {
   
   imputed.data<-y
 }
-
 
 # 0-4-2 Function to do imputation a la TOBMI (supplied by Dr. Hornung)
 ImputeWithTOBMI <- function(omicsdata, blockind) {
@@ -135,14 +132,11 @@ get_predicition <- function(train, test) {
   
   # [1] Train a RF & create predictions for the test-set
   # 1-1 Train a RF on 'train'
-  # --1 Convert the response to a factor
-  train[,'ytarget'] <- as.factor(train[,'ytarget'])
-  
-  # --2 Create a formula to pass to the RF 
+  # --1 Create a formula to pass to the RF 
   #     (define response & use remaining variables as features)
   formula_all <- as.formula(paste('ytarget', " ~ ."))
   
-  # --3 Fit the RF (use standard-settings)
+  # --2 Fit the RF (use standard-settings)
   RF <- rfsrc(formula = formula_all, data = train, samptype = "swr", 
               seed = 12345678, var.used = 'all.trees')
   
@@ -165,10 +159,12 @@ eval_imp_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, s
   "Evaluate the Imputation-Approach on the data 'path' points to.
    The (block-wise) missing values in the train-set are imputed with TOMBI. Then all the blocks that
    are not available for the test-set are removed from the train-set.
-   If the train-set is 'empty' afterwards, the approach can not be appliedm! Else a RF is 
-   then fit on the reamining train-set & used to predict on the test-set. Evaluate the predicitons
-   with common metrics, and return all results in a DF w/ all the settings for the evaluation 
-   (e.g. path, seeds, train_pattern, settings for RF, ...)
+   If the train-set is 'empty' afterwards, the approach can not be applied!
+   Else a RF is trained (w/ standard settings 'ntree', 'mtry' & 'min_node_size') &
+   evaluated on test-set then. 
+   Finally return a DF with the the AUC, the Brier-Score & the standard metrics 
+   Precision, Recall, Sensitivity, Specificity, F-1 Score & Accuracy + all the 
+   settings for the evaluation (e.g. path, seeds, train_pattern, block_order, ...).
    
    Args:
       > path               (str): Path to a dataset - must contain 'Data/Raw'
@@ -276,17 +272,16 @@ eval_imp_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, s
   
   # 2-2 Calculate the metrics based on the true & predicted labels
   # 2-2-1 Confusion Matrix & all corresponding metrics (Acc, F1, Precision, ....)
-  metrics_1 <- caret::confusionMatrix(preds_test_set$pred_classes, 
-                                      factor(train_test_bwm$Test$data$ytarget, 
-                                             levels = c(0, 1)),
+  metrics_1 <- caret::confusionMatrix(preds_test_set$pred_classes,
+                                      train_test_bwm$Test$data$ytarget,
                                       positive = "1")
   
   # 2-2-2 Calculate the AUC
-  AUC <- pROC::auc(factor(train_test_bwm$Test$data$ytarget, levels = c(0, 1)), 
+  AUC <- pROC::auc(train_test_bwm$Test$data$ytarget, 
                    preds_test_set$pred_prob_pos_class, quiet = T)
   
   # 2-2-3 Calculate the Brier-Score
-  brier <- mean((preds_test_set$pred_prob_pos_class - train_test_bwm$Test$data$ytarget)  ^ 2)
+  brier <- mean((preds_test_set$pred_prob_pos_class - as.numeric(levels(train_test_bwm$Test$data$ytarget))[train_test_bwm$Test$data$ytarget]) ^ 2)
   
   # [3] Return the results as DF
   return(data.frame("path"               = path, 
@@ -335,6 +330,7 @@ for (curr_path in df_paths) {
     for (curr_test_pattern in c(1, 2, 3, 4)) {
       for (curr_repetition in c(1, 2, 3, 4, 5)) {
         
+        # Print Info to current evaluation!
         cat('-----------------------------------------------\n',
             "Current Path:          >", curr_path, '\n',
             "Current Train Pattern: >", curr_train_pattern, '\n',
@@ -375,7 +371,7 @@ for (curr_path in df_paths) {
                                data.frame("path"               = curr_path, 
                                           "frac_train"         = 0.75, 
                                           "split_seed"         = curr_split_seed, 
-                                          "block_seed_train"   = curr_block_seed_test,
+                                          "block_seed_train"   = block_seed_train,
                                           "block_seed_test"    = curr_block_seed_test, 
                                           "block_order_train_for_BWM" = '---',
                                           "block_order_test_for_BWM"  = '---',
