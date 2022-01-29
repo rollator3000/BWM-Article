@@ -9,22 +9,21 @@ This project compares different approaches capable to deal with block-wise missi
 The approaches are either based on the random-forest or on the penalised-regression approach - this repository focuses on the random-forest based approaches.     
 
 ## Block-wise missingness:
-- Block-wise missingness is a special type of missingness that appears frequently in the context of Multi-Omics data. For example when concatenating data from multiple clinical studies. Even though the different studies have the same target variable, the observed features can still differ! The concatenation of such datasets results then in a DF with block-wise missingness!  
+- Block-wise missingness is a special type of missingness that appears frequently in the context of Multi-Omics data - for example when concatenating data from multiple clinical studies. Even though the different studies have the same target variable, the observed features can still differ! The concatenation of such datasets results then in a DF with block-wise missingness!  
 
-- Regular model fitting on data with block-wise missingness is not directly possible for most approaches, such that either the method needs to be adjusted or the data processed! 
+- Regular model fitting on data with block-wise missingness is for most approaches not directly possible, such that either the method needs to be adjusted or the data processed! 
 
 - Besides the train-data, also the test-data can consist of block-wise missingness. Therefore the approaches must be able to deal with block-wise missing data in the test- as well as in the train-data.  
-<br>
 
 ### Example for data with blockwise missingness:
 Data with blockwise missingness always consists of different **folds** and **blocks**.  
   - A **block** describes a set of covariates containing all features collected based on a characteristic  
-    &#8594; All covariates that are related in content - the example has three blocks:  
+    &#8594; All covariates that are related in content - the given example has three blocks:  
      - **Physical properties:**     Weight, Height
      - **Educational properties:**  Income, Education
      - **Biological properties:**   g1, ..., g100
   - A **fold** represents a set of observations with the same observed blocks.  
-    &#8594; All observations with the same observed features - the example has three folds:   
+    &#8594; All observations with the same observed features - the given example has three folds:   
      - **Fold1:** All observations with observed Physical & Educational properties
      - **Fold2:** All observations with observed Educational & Biological properties
      - **Fold3:** All observations with observed Physical & Biological properties
@@ -45,6 +44,12 @@ Data with blockwise missingness always consists of different **folds** and **blo
 * The data was provided by Dr. R. Hornung, who has worked with these multi-omics data-sets already  
 * The provided data doesn't contain any missing values, such that the blockwise-missingness needs to be induced manually   
 * Each data-set uses the 'TP53'-Mutation as response and consits of four further omics-blocks 'clinical', 'copy number variation', 'miRNA' & 'RNA'
+
+## Evaluation Results  
+For each approach, there is a seperate folder in 'Docs/Evaluation_Results/' that contains the results of the evaluation.  
+It contains all the settings of the evaluation *(e.g. seeds, train-pattern, test-pattern, ...)* and the metrics *(e.g. Accuracy, F1, BrierScore, ...)*.  
+If a **known problem** occurs *(e.g. CC-Approach: no common blocks in train & test)* there can be no metrics, but the block-order in test- & train-set will be included.  
+In case an **unknown problem** occurs the block-order in test- & train-set will not be included in the results! So this can be used to track down unexpected behavior!  
 
 ## Code  
 This section contains short descriptions to the scripts in 'Code/' - there is an logical order in these scripts!  
@@ -68,7 +73,7 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
     - Evaluate the Complete-Case approach on data with BWM  
     - Remove all blocks from the train-set that are not available in the test-set
     - Only keep completly observed cases in the train-set & train a RF with it
-    - Use this RF to predict on the test-set then & collect common metrics (AUC, Accuracy, Precision, Recall, ...) 
+    - Use this RF to predict on the test-set then & collect common metrics (AUC, Accuracy, ...) 
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/CC_Approach'
 
 #### [4] 03_Single_Block_Approach.R 
@@ -96,7 +101,7 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/BW_Approach'
 
 #### [7] 06_check_eval_results.R  
-    - Check the qulaity of the evaluation results 
+    - Check the qulaity of th evaluation results 
     - Ensure there are not unexpected results due to unexpected behavior
 
 ## Folder-Structure  
