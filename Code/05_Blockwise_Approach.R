@@ -10,7 +10,7 @@
   > Internally evaluate each fit RF with their oob-AUC 
   > Each RF is then used to predict on the observations of the test-set then
   > Create an overall prediciton by calculating an weighted average of the speperate predicitons
-    - sa weights for the weighted average we use the oob-AUC of the RFs
+    - as weights for the weighted average we use the oob-AUC of the RFs
   > Evaluate the results with common metrics (AUC, Accuracy, F-1 Score, ...)
 "
 # [0] SetWD, load packages, define variables and functions                  ----
@@ -22,8 +22,6 @@ setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
 # 0-2 Load packages
 library(checkmate)
 library(randomForestSRC)
-library(parallel)
-library(doParallel)
 library(caret)
 library(pROC)
 
@@ -54,14 +52,11 @@ fit_RF_get_oob_AUC <- function(data) {
   
   # [1] Fit RF on the data
   # 1-1 Train a RF on 'train'
-  # --1 Convert the response to a factor
-  data[,'ytarget'] <- as.factor(data[,'ytarget'])
-  
-  # --2 Create a formula to pass to the RF 
+  # --1 Create a formula to pass to the RF 
   #     (define response & use remaining variables as features)
   formula_all <- as.formula(paste('ytarget', " ~ ."))
   
-  # --3 Fit the actual RF (only use standard-settings)
+  # --2 Fit the actual RF (only use standard-settings)
   RF <- rfsrc(formula = formula_all, data = data, samptype = "swr", 
               seed = 12345678, var.used = 'all.trees')
   
@@ -70,7 +65,9 @@ fit_RF_get_oob_AUC <- function(data) {
   pred_prob_oob <- RF$predicted.oob[,'1']
   
   # 2-2 Compare the predicted class-prob. with the true classes & calc the AUC
-  AUC <- pROC::auc(data$ytarget, pred_prob_oob, quiet = T)
+  #  -> in case RF predict all OOB as 0/ 1 error will arise -> set AUC to 0
+  AUC <- tryCatch(expr = pROC::auc(data$ytarget, pred_prob_oob, quiet = T),
+                  error = function(c) 0)
   
   # [3] Return a list with the AUC & the RF itself
   return(list("RF" = RF,
@@ -81,8 +78,7 @@ fit_RF_get_oob_AUC <- function(data) {
 eval_bw_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
                              block_seed_train = 1234, block_seed_test = 1312, train_pattern = 2, 
                              train_pattern_seed = 12, test_pattern = 2) {
-  "
-   Evaluate the BW-Approach on the data 'path' points to. 
+  "Evaluate the BW-Approach on the data 'path' points to. 
    On each block that the test- & train-set have in commom, a seperate RF is trained & evaluated 
    with the out-of-bag AUC - the RFs are trained with their standard settings (e.g. 'ntree' & 'mtry').
    Each of these RFs predict on the test-set then. The final prediciton equals a weighted average of the
@@ -240,17 +236,16 @@ eval_bw_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
   
   # [3] Calculate the metrics based on the true & predicted labels
   # 3-1  Confusion Matrix & all corresponding metrics (Acc, F1, Precision, ....)
-  metrics_1 <- caret::confusionMatrix(classes_predicted, 
-                                      factor(train_test_bwm$Test$data$ytarget, 
-                                             levels = c(0, 1)),
+  metrics_1 <- caret::confusionMatrix(classes_predicted,
+                                      train_test_bwm$Test$data$ytarget,
                                       positive = "1")
   
   # 3-2 Calculate the AUC
-  AUC <- pROC::auc(factor(train_test_bwm$Test$data$ytarget, levels = c(0, 1)), 
+  AUC <- pROC::auc(train_test_bwm$Test$data$ytarget, 
                    weighted_predicitons, quiet = T)
   
   # 3-3 Calculate the Brier-Score
-  brier <- mean((weighted_predicitons - train_test_bwm$Test$data$ytarget)  ^ 2)
+  brier <- mean((weighted_predicitons - as.numeric(levels(train_test_bwm$Test$data$ytarget))[train_test_bwm$Test$data$ytarget]) ^ 2)
   
   # [4] Return the results as DF
   return(data.frame("path"               = path, 
@@ -338,7 +333,7 @@ for (curr_path in df_paths) {
                                data.frame("path"               = curr_path, 
                                           "frac_train"         = 0.75, 
                                           "split_seed"         = curr_split_seed, 
-                                          "block_seed_train"   = curr_block_seed_test,
+                                          "block_seed_train"   = block_seed_train,
                                           "block_seed_test"    = curr_block_seed_test, 
                                           "block_order_train_for_BWM" = '---',
                                           "block_order_test_for_BWM"  = '---',
