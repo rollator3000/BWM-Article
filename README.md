@@ -66,21 +66,21 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
 
 #### [2] 01_Create_BWM_Pattern.R
     - All files in data/raw are fully observed & do not contain missing values  
-    - Define functions, to load the data, split it to test- & train-Set & induce the different BWM-Pattern then  
+    - Define functions, to load the data, split it to test- & train-Set & induce the different BWM-Pattern  
     - Based on the resulting data, the various approaches can be evaluated then  
 
 #### [3] 02_Complete_Case_Approach.R
     - Evaluate the Complete-Case approach on data with BWM  
     - Remove all blocks from the train-set that are not available in the test-set
     - Only keep completly observed cases in the train-set & train a RF with it
-    - Use this RF to predict on the test-set then & collect common metrics (AUC, Accuracy, ...) 
+    - Use this RF to predict on the test-set then & collect common metrics  
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/CC_Approach'
 
 #### [4] 03_Single_Block_Approach.R 
     - Evaluate the Single_Block approach on the data with BWM   
     - Fit a seperate RF on each block that train- & test-set have in common
     - Evaluate each of these RFs with the oob-AUC 
-    - Use the RF with the highest oob-AUC to predict on the test-set set then & collect common metrics (AUC, Accuracy, ...)  
+    - Use the RF with the highest oob-AUC to predict on the test-set set then & collect common metrics   
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/SB_Approach'
 
 #### [5] 04_Imputation_Approach.R 
@@ -88,16 +88,17 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
     - Impute the missing values in the train-set with the TOBMI-Imputation method
     - Remove all blocks from the imputed data that are not available in the test-set
     - Train a RF on the remaining train-set 
-    - Use this RF to predict on the test-set then & collect common metrics (AUC, Accuracy, Precision, Recall, ...) 
+    - Use this RF to predict on the test-set then & collect common metrics   
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/IMP_Approach'
 
 #### [6] 05_Blockwise_Approach.R 
     - Evaluate the Blockmwise approach on the data with BWM 
     - Fit a RF seperatly on each block that train- & test-set have in common 
     - Evaluate each RF internally with the oob-AUC
-    - Predict on the test-set, by creating a weighted average of the predicitons from the block-wise fitted RFs 
+    - Predict on the test-set, by creating a weighted average of the predicitons
+      from the block-wise fitted RFs 
     - Use the oob-AUC for weighting the predicitons of the block-wise fitted RFs 
-    - Based on predicted & true classes, calculate common metrics (AUC, Accuracy, Precision, Recall, ...) 
+    - Based on predicted & true classes, calculate common metrics   
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/BW_Approach'
 
 #### [7] 06_check_eval_results.R  
