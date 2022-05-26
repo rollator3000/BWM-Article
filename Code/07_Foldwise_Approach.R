@@ -10,6 +10,7 @@ library(checkmate)
 library(randomForestSRC)
 library(caret)
 library(pROC)
+library(doParallel)
 
 # 0-3 Define variables
 
@@ -17,53 +18,65 @@ library(pROC)
 # 0-4-1 Load functions from 'code/01_Create_BWM_Pattern"
 source("./Code/01_Create_BWM_Pattern.R")
 
-# 0-4-2 Fit an RF to data, return the RF & its oob-AUC
-fit_RF_get_oob_AUC <- function(data) {
-  "Fit an RF (w/ its standard settings) to 'data' - 'ytarget' is used as response.
-   Return the oob-AUC of the fit RF, as well as the RF itself.
-   
-   Args:
-    > data (data.frame): Data with at least two columns & observations. 
-                         Must contain the column 'ytarget' & no have missing values.
-                         
-   Return:
-    > List with the two entrances:
-      > AUC: AUC-metric that was calculated based on the oob-observations of the RF
-      > RF:  The RF itself
-  "
-  # [0] Check Inputs
-  # 0-1 'data' has to be a DF, with at least 2 observations & columns
-  assert_data_frame(data, any.missing = F, min.rows = 2, min.cols = 2)
-  if (!'ytarget' %in% colnames(data)) stop("'data' must contain 'ytarget' as column")
-  
-  # [1] Fit RF on the data
-  # 1-1 Train a RF on 'train'
-  # --1 Create a formula to pass to the RF 
-  #     (define response & use remaining variables as features)
-  formula_all <- as.formula(paste('ytarget', " ~ ."))
-  
-  # --2 Fit the actual RF (only use standard-settings)
-  RF <- rfsrc(formula = formula_all, data = data, samptype = "swr", 
-              seed = 12345678, var.used = 'all.trees')
-  
-  # [2] Get the AUC based on the oob-observations 
-  # 2-1 Get the predicted probabilities for the oob-observations
-  pred_prob_oob <- RF$predicted.oob[,'1']
-  
-  # 2-2 Compare the predicted class-prob. with the true classes & calc the AUC
-  #  -> in case RF predict all OOB as 0/ 1 error will arise -> set AUC to 0
-  AUC <- tryCatch(expr = pROC::auc(data$ytarget, pred_prob_oob, quiet = T),
-                  error = function(c) 0)
-  
-  # [3] Return a list with the AUC & the RF itself
-  return(list("RF" = RF,
-              "AUC" = AUC))
-}
+# 0-4-2 Load functions so we can fit and prune a RF 
+#       (not possible with 'randomForestSRC'-library...)
+source("./code/07_1_simpleRF_adaption.R")
 
+# 0-4-3 Check whether all trees are grown correctly
+all_trees_grown_correctly <- function(trees) {
+  "Check, whether 'trees', were grown correctly & if not grow these trees again,
+   as long, as they are grown correctly! 
+      --> Growning not correctly: No 'childNodeIDs', no split variables etc...
+  
+   Args:
+      trees (list) : list filled with object of the class 'Tree'! 
+                     For each object in there check, whether it was grown 
+                     correctly (has childNodeIDs) - if not grown it again!
+                     
+   Return: 
+      list of trees, where all of these trees were grown correctly
+      --> each tree has at least one 'childNodeID'
+  "
+  # [0] Check Inputs  ----------------------------------------------------------
+  # 0-1 All Objects in 'trees' of class 'Tree'
+  trees_classes <- sapply(trees, function(x) class(x))
+  if (any(!grepl("Tree", trees_classes))) {
+    stop("Not all Objects in 'trees' are of class 'Tree'")
+  }
+  
+  # [1] Get the entrance of the objects, that miss child node IDs  -------------
+  wrong_trees  <- unlist(lapply(1:length(trees), 
+                                FUN = function(x) {
+                                  if (length(trees[[x]]$child_nodeIDs) == 0) x
+                                }))
+  
+  # [2] Regrow the trees, that were not grown correctly  -----------------------
+  #     If there are any trees not grown correctly, grow them again until all
+  #     of the trees were grown correctly!
+  while (length(wrong_trees) > 0) {
+    
+    # grow the errours trees again
+    trees[wrong_trees] <- lapply(trees[wrong_trees], 
+                                 function(x) {
+                                   x$grow(replace = TRUE)
+                                   x
+                                 })
+    
+    # check whether any of the trees is not grown correctly!
+    wrong_trees  <- unlist(lapply(1:length(trees), 
+                                  FUN = function(x) {
+                                    if (length(trees[[x]]$child_nodeIDs) == 0) x
+                                  }))
+  }
+  
+  # [3] Return the correclty grown trees  --------------------------------------
+  return(trees)
+}
 
 #### ----  USe 'code/05...' as template for implementation of the FW-Approach
 
-# ----------- 1 Set argumets for evaluation
+# ----------- 1 Set arguments for evaluation 
+#            (this all will be packed into a single Eval-Function)
 path               = './Data/Raw/BLCA.Rda'
 frac_train         = 0.75
 split_seed         = 1312
@@ -95,20 +108,56 @@ train_test_bwm <- get_train_test(path = path,                             # Path
        - 'block_index' (index of the blocks after the order of the blocks has been shuffled)
        - 'block_names' (names of the blocks after they have been shuffled)
        - 'Train' also has a additional entrance 'fold_index' with the assigned fold for each obs.
-
 "
-# shape of the data
+
+# TEMPORATILY --- REMOVE EVERY SECOND COLUMN IN TRAIN TO HAVE LOWER COMP. NEEDS
+cols_to_keep_ex           <- colnames(train_test_bwm$Train$data)[seq(from = 1, to = 81875, by = 4)]
+cols_to_keep_ex           <- c(cols_to_keep_ex, 'ytarget')
+train_test_bwm$Train$data <- train_test_bwm$Train$data[cols_to_keep_ex]
+train_test_bwm$Test$data  <- train_test_bwm$Test$data[cols_to_keep_ex]
+
+# [2] Check the data, extract a single fold & fit an RF on it
+# 2-1 Shape of the train-data & get its availabe folds
 dim(train_test_bwm$Train$data)
-# Folds
 train_test_bwm$Train$fold_index
 length(unique(train_test_bwm$Train$fold_index))
 
-# Select a current fold (all obs. are observed in the same features)
-curr_fold <- train_test_bwm$Train$data[which(train_test_bwm$Train$fold_index == 1),]
+# 2-2 Fit the single trees of the whole RandomForest
+Forest <- list()
+for (j_ in 1:length(unique(train_test_bwm$Train$fold_index))) {
+  
+  # Extract the current fold 'j_' and remove all columns w/ NAs 
+  curr_fold <- train_test_bwm$Train$data[which(train_test_bwm$Train$fold_index == j_),]
+  curr_fold <- curr_fold[,-which(sapply(curr_fold, function(x) sum(is.na(x)) == nrow(curr_fold)))]
+  
+  # Define formula
+  formula_all <- as.formula(paste("ytarget ~ ."))
+  
+  # Fit a RF to the corresponding folds
+  fold_RF <- simpleRF(formula           = formula_all, 
+                      data              = curr_fold, 
+                      num_trees         = 5,     # Same settings as for 'rfSCR' ! 500 !
+                      mtry              = NULL, 
+                      min_node_size     = 1,
+                      replace           = TRUE,  # always TRUE, as we need OOB!
+                      splitrule         = NULL,  # always NULL!
+                      unordered_factors = "ignore")
+  
+  # Grow the single trees of the RF
+  fold_RF <- lapply(fold_RF, function(x) {
+    x$grow(replace = TRUE)
+    x
+  })
+  
+  # Add grown fold_RF to 'Forest'
+  Forest[[j_]] <- fold_RF
+}
 
-# Remove the unknown variables
-# - sum of variables that are unknown (for all obs.)
-sum(sapply(curr_fold, function(x) sum(is.na(x)) == nrow(curr_fold)))
-curr_fold <- curr_fold[,-which(sapply(curr_fold, function(x) sum(is.na(x)) == nrow(curr_fold)))]
+# [3] Get predictions for the test-set
+
+
+
+
+# 
 
 
