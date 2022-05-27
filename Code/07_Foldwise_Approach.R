@@ -73,25 +73,104 @@ all_trees_grown_correctly <- function(trees) {
   return(trees)
 }
 
+# 0-4-4 Calculate the oob AUC of single Forest
+get_oob_AUC <- function(trees) {
+  "Calculate OOB AUC of a list of trees! 
+   For this we go  through all OOB Predictions and obtain aggregated predicitons
+   from all trees, that have the same observation as out-of-bag!
+   In case the metrics are 'NA' [not defined] they are repalced by 0 [worst value]
+    
+    Args: 
+      - trees (list)        : list filled w/ objects of class 'Tree'
+      
+    Return:
+      - Average oob-Acc & oob-F1 metric for 'trees'!
+  "
+  # [0] Check Input ------------------------------------------------------------
+  # 0-1 Make sure 'trees' is a list filled with 'Trees'
+  assert_list(trees, min.len = 1, any.missing = FALSE)
+  if (any(sapply(trees, function(x) 'Tree' %in% class(x)))) {
+    stop("not all elements in 'trees' are of class 'Tree'")
+  }
+  
+  # [1] Get the OOB Predicitons ------------------------------------------------
+  # 1-1 Get the trees, that are usable - not pruned in the first split_variable!
+  usable_trees <- sapply(1:length(trees), function(x) {
+    
+    # Check whether the first split_var was pruned!
+    if (trees[[x]]$child_nodeIDs[[1]][1] != "pruned") {
+      return(x)
+    } 
+  })
+  
+  # 1-1-1 If all the trees were pruned in the first node, we can not do
+  #       any OOB predictions --> OOB-Accuracy = 0
+  if (length(usable_trees) < 1) {
+    return(0)
+  } else {
+    usable_trees <- unlist(usable_trees)
+  }
+  
+  # 1-2 For all usable trees [not pruned in first split variable] get the IDs
+  #     of the OOB observations. Then collect all and only keep unique IDs!
+  oob_ids_all_trees <- sapply(usable_trees, function(x) trees[[x]]$oob_sampleIDs)
+  unique_oob_ids    <- unique(unlist(oob_ids_all_trees))
+  
+  # 1-3 Loop over all 'unique_oob_ids' and get the oob predictions from all 
+  #     trees, that have the same OOB observation!
+  all_oob_preds_class0 <- c()
+  for (curr_oob in unique_oob_ids) {
+    
+    # 1-3-1 Get all trees that have 'curr_oob' as OOB observation!
+    trees_same_oob <- unlist(sapply(usable_trees, function(x) {
+      if (curr_oob %in% trees[[x]]$oob_sampleIDs) x
+    }))
+    
+    # 1-3-2 Get the feas of the observation that is OOB for 'trees_same_oob' 
+    curr_oob_feas <- Data$new(data = trees[[1]]$data$data[curr_oob,])
+    
+    # 1-3-3 Get a Prediciton for the 'curr_oob' from all trees!
+    predicted_probs <- sapply(trees_same_oob, 
+                              function(x) trees[[x]]$predict(curr_oob_feas))
+    
+    # 1-3-4 Aggregate the predictions from the different trees and
+    #       Get the probability for class 0! [First Row is class 0]
+    all_oob_preds_class0 <- c(all_oob_preds_class0, 
+                              sum(predicted_probs[1,]) / length(trees_same_oob))
+  }
+  
+  # [2] Compare predicted probabilites with the true classes 
+  # 2-1 Convert 'all_oob_preds_class0' to 'all_oob_preds_class1'
+  all_oob_preds_class1 <- ((all_oob_preds_class0 - 1) * - 1)
+  
+  # 2-2 Get the AUC
+  AUC <- tryCatch(expr = pROC::auc(trees[[1]]$data$data[unique_oob_ids, 1], 
+                                   all_oob_preds_class1, quiet = T),
+                  error = function(c) 0)
+  
+  # 2-3 Return it
+  return(AUC)
+}
+
 #### ----  USe 'code/05...' as template for implementation of the FW-Approach
 
 # ----------- 1 Set arguments for evaluation 
 #            (this all will be packed into a single Eval-Function)
 path               = './Data/Raw/BLCA.Rda'
 frac_train         = 0.75
-split_seed         = 1312
-block_seed_train   = 1234
-block_seed_test    = 1312
+split_seed         = 12
+block_seed_train   = 13
+block_seed_test    = 11
 train_pattern      = 2
 train_pattern_seed = 12
 test_pattern       = 2
 
-# ----------- 2 Start running the function 'eval_bw_approach()'
+# FUNCTION --- FUNCTION --- FUNCTION --- FUNCTION --- FUNCTION --- FUNCTION --- 
 # [0] Check Inputs
 #     --> All arguments are checked in the functions 'get_train_test()' &
-#         'get_predicition()' that werde loaded from 'Code/01_Create_BWM_Pattern.R'
+#         'get_predicition()' [loaded from 'Code/01_Create_BWM_Pattern.R']
 
-# [1] Load & prepare the data 
+# [1] Load & prepare the data --------------------------------------------------
 # 1-1 Load the data from 'path', split it to test- & train & induce block-wise 
 #     missingness into both of them according to 'train_pattern' & 'test_pattern'
 train_test_bwm <- get_train_test(path = path,                             # Path to the data
@@ -102,24 +181,17 @@ train_test_bwm <- get_train_test(path = path,                             # Path
                                  train_pattern = train_pattern,           # Pattern to introduce to train
                                  train_pattern_seed = train_pattern_seed, # Seed for the introduction of the BWM into train
                                  test_pattern = test_pattern)             # Pattern for the test-set
-"--> Get a single Test-Train-Set with the pattern 'train_pattern' & 'test_pattern'
-    > A list with the lists 'Train' & 'Test'. Both of the lists contain the entrances:
-       - 'data' (w/ BWM according to 'train_pattern' / 'test_pattern')
-       - 'block_index' (index of the blocks after the order of the blocks has been shuffled)
-       - 'block_names' (names of the blocks after they have been shuffled)
-       - 'Train' also has a additional entrance 'fold_index' with the assigned fold for each obs.
-"
 
-# TEMPORATILY --- REMOVE EVERY SECOND COLUMN IN TRAIN TO HAVE LOWER COMP. NEEDS
-cols_to_keep_ex           <- colnames(train_test_bwm$Train$data)[seq(from = 1, to = 81875, by = 4)]
-cols_to_keep_ex           <- c(cols_to_keep_ex, 'ytarget')
+# 1-2 TEMPORATILY --- Only keep every 10 variable for lower comp. needs
+cols_to_keep_ex           <- colnames(train_test_bwm$Train$data)[seq(from = 1, to = 81875, by = 10)]
+cols_to_keep_ex           <- unique(c(colnames(train_test_bwm$Train$data)[1:4], cols_to_keep_ex, 'ytarget'))
 train_test_bwm$Train$data <- train_test_bwm$Train$data[cols_to_keep_ex]
 train_test_bwm$Test$data  <- train_test_bwm$Test$data[cols_to_keep_ex]
 
-# [2] Check the data, extract a single fold & fit an RF on it
-# 2-1 Shape of the train-data & get its availabe folds
+# [2] Check the data, extract a single fold & fit an RF on it ------------------
+# 2-1 Shape of the train-data & get its available folds
 dim(train_test_bwm$Train$data)
-train_test_bwm$Train$fold_index
+table(train_test_bwm$Train$fold_index)
 length(unique(train_test_bwm$Train$fold_index))
 
 # 2-2 Fit the single trees of the whole RandomForest
@@ -149,15 +221,123 @@ for (j_ in 1:length(unique(train_test_bwm$Train$fold_index))) {
     x
   })
   
+  # Ensure the trees are grown correctly
+  fold_RF <- all_trees_grown_correctly(fold_RF)
+  
   # Add grown fold_RF to 'Forest'
   Forest[[j_]] <- fold_RF
 }
 
-# [3] Get predictions for the test-set
+
+# [3] Get predicitons of the FW-RFs --------------------------------------------
+# 3-1 Remove all columsn with NA from the testdata & check it again then
+testdata <- train_test_bwm$Test$data
+testdata <- testdata[ , colSums(is.na(testdata)) == 0]
+assert_data_frame(testdata, any.missing = F, min.rows = 1)
+
+# 3-2 Process the test-data (specific preparation for each FW-fitted RF)
+#     Convert TestData to same Format as the data the trees were originally
+#     trained with, to ensure factor levels/ features are the same ....
+tree_testsets <- list()
+for (i in 1:length(Forest)) {
+  tree_testsets[[i]] <- process_test_data(tree = Forest[[i]][[1]], 
+                                          test_data = testdata)
+}
+
+# 3-3 Get a prediction for every observation in TestData from all FW-fitted RFs
+#     (class & probabilites) - as the features in Train & Test can be different, 
+#     the FW-fitted Forests need to be pruned before creating a prediciton
+tree_preds_all <- list()
+tree_preds_all <- foreach(i = 1:length(Forest)) %dopar% { # par
+  
+  # save the predictions as 'treeX_pred'
+  return(get_pruned_prediction(trees = Forest[[i]], 
+                               test_set = tree_testsets[[i]]))
+}
 
 
+# 3-4 Check whether any of the RFs is not usable [only NA predicitons] & rm it
+# --1 Get the trees that can not be used for prediciton
+not_usable <- sapply(seq_len(length(tree_preds_all)), function(i) {
+  all(is.na(tree_preds_all[[i]]$Class))
+})
 
+# --2 Check that there are still trees existing, else no preds possible!
+if (all(not_usable)) {
+  print("None of the trees are usable for predictions!")
+  return("No Predictions possible as all trees are pruned at the 1. splitvar!")
+}
 
-# 
+# --3 Remove the tress, that are not usable from 'Forest', 'tree_preds_all' & 'tree_testsets'
+if (any(not_usable)) {
+  Forest         <- Forest[-c(which(not_usable))]
+  tree_preds_all <- tree_preds_all[-c(which(not_usable))]
+  tree_testsets  <- tree_testsets[-c(which(not_usable))]
+}
+
+# [4] Get the oob-AUC of the fitted trees --------------------------------------
+# 4-1 Loop over all trees and prune them according to the testdata!
+#    [--> had to be added, as the pruning is not saved when running in parallel]
+for (i_ in 1:length(Forest)) {
+  curr_test_set <- tree_testsets[[i_]]
+  tmp <- sapply(Forest[[i_]], FUN = function(x) x$prune(curr_test_set))
+}
+
+# 4-2 Get the oob-performance of the pruned trees!
+AUC_weight <- foreach(l = seq_len(length(Forest))) %dopar% { # par
+  get_oob_AUC(trees = Forest[[l]])
+}
+
+# [5] Aggregate predictions from the FW fitted RFs -----------------------------
+# 5-1 Get the predicitons of all FW fotted Rfs, weight the observations & get an
+#     aggregated predicted probability  
+probs_class_1_ <- sapply(1:nrow(testdata), FUN = function(x) {
+  
+  # Get a probability prediciton from each [still usable] tree!
+  preds_all <- sapply(seq_len(length(tree_preds_all)), function(i) {
+    tree_preds_all[[i]]$Probs[[x]][2]
+  })
+  
+  # Combine the preditions of the different trees!
+  prob_class1 <- weighted.mean(preds_all, w = unlist(AUC_weight), na.rm = TRUE)
+  prob_class1
+})
+
+# 5-2 Convert probabilities to classes!
+preds_class_1_ <- ifelse(probs_class_1_ >= 0.5, 1, 0)
+preds_class_1_ <- factor(preds_class_1_, levels = levels(Forest[[1]][[1]]$data$data[,1]))
+
+# [6] Calculate the metrics based on the true & predicted labels --------------
+# 5-1 Confusion Matrix & all corresponding metrics (Acc, F1, Precision, ....)
+metrics_1 <- caret::confusionMatrix(preds_class_1_,
+                                    train_test_bwm$Test$data$ytarget,
+                                    positive = "1")
+
+# 5-2 Calculate the AUC
+AUC <- pROC::auc(train_test_bwm$Test$data$ytarget, 
+                 probs_class_1_, quiet = T)
+
+# 5-3 Calculate the Brier-Score
+brier <- mean((probs_class_1_ - as.numeric(levels(train_test_bwm$Test$data$ytarget))[train_test_bwm$Test$data$ytarget]) ^ 2)
+
+# [4] Return the results as DF
+return(data.frame("path"               = path, 
+                  "frac_train"         = frac_train, 
+                  "split_seed"         = split_seed, 
+                  "block_seed_train"   = block_seed_train,
+                  "block_seed_test"    = block_seed_test, 
+                  "block_order_train_for_BWM" = paste(train_test_bwm$Train$block_names, collapse = ' - '),
+                  "block_order_test_for_BWM"  = paste(train_test_bwm$Test$block_names, collapse = ' - '),
+                  "train_pattern"      = train_pattern, 
+                  "train_pattern_seed" = train_pattern_seed, 
+                  "test_pattern"       = test_pattern, 
+                  "AUC"                = AUC,
+                  "Accuracy"           = metrics_1$overall['Accuracy'], 
+                  "Sensitivity"        = metrics_1$byClass['Sensitivity'], 
+                  "Specificity"        = metrics_1$byClass['Specificity'], 
+                  "Precision"          = metrics_1$byClass['Precision'], 
+                  "Recall"             = metrics_1$byClass['Recall'], 
+                  "F1"                 = metrics_1$byClass['F1'], 
+                  "BrierScore"         = brier))
 
 
