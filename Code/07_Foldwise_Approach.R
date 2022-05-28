@@ -152,6 +152,227 @@ get_oob_AUC <- function(trees) {
   return(AUC)
 }
 
+# 0-4-5 Function to evaluate the FW-Approach
+eval_fw_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75,
+                             split_seed = 12, block_seed_train = 13, block_seed_test = 11, 
+                             train_pattern = 2, train_pattern_seed = 12, test_pattern = 2) {
+  "Evaluate the FW-Approach on the data 'path' points to. 
+   Fit a seperate RF on each fold in the train-set - the RFs are trained with
+   their standard settings (e.g. 'ntree' & 'mtry'). 
+   Prune these trees according to the test-set (if a single decision-tree uses a 
+                                                split-variable that is not available 
+                                                in the test-set, make this node 
+                                                a new terminal node).
+   Then the predicitionss of the fold-wise fitted RFs are aggregated to a final 
+   prediciton, whereby the final prediciton equals a weighted average of the
+   fold-wise predicitons. The weights in the weighted average equal the oob-auc 
+   of the fold-wise fitted RFs. Evaluate the predicitons with common metrics, and
+   return all results in a DF w/ all the settings for the evaluation (e.g. path, 
+   seeds, train_pattern, settings for RF, ...). 
+   In case an error happens, return a DF with the settings of the evaluation, 
+   but w/ '---' for the metrics!
+   
+   Args:
+      > path               (str): Path to a dataset - must contain 'Data/Raw'
+      > frac_train       (float): Fraction of observations for the train-set - ]0;1[
+      > split_seed         (int): Seed for the split of the data to train & test
+      > block_seed_train   (int): Seed for the shuffeling of the block-order in train
+      > block_seed_test    (int): Seed for the shuffeling of the block-order in test
+      > train_pattern      (int): Seed for the induction of the pattern for train
+                                  (obs. are assigned to different folds!)
+      > train_pattern_seed (int): Pattern to induce into train (1, 2, 3, 4, 5)
+      > test_pattern       (int): Pattern to induce into test (1, 2, 3, 4)
+   
+   Return:
+      > A DF with the settings of the experiment (path to the data, train pattern, ...), 
+        the settings of the RF (ntree, mtry, ...) and the metric-results of the 
+        evaluation (AUC; Brier-Score; Accuracy)
+  "
+  # [0] Check Inputs
+  #     --> All arguments are checked in the functions 'get_train_test()' &
+  #         'get_predicition()' [loaded from 'Code/01_Create_BWM_Pattern.R']
+  
+  # [1] Load & prepare the data
+  # 1-1 Load the data from 'path', split it to test- & train-set, shuffle their block-order
+  #     & induce block-wise missingness according to 'train_pattern' & 'test_pattern'
+  train_test_bwm <- get_train_test(path = path,                             # Path to the data
+                                   frac_train = frac_train,                 # Fraction of data used for Training (rest for test)
+                                   split_seed = split_seed,                 # Seed for the split of the data into test- & train
+                                   block_seed_train = block_seed_train,     # Seed to shuffle the block-order in train
+                                   block_seed_test = block_seed_test,       # Seed to shuffle the block-order in test
+                                   train_pattern = train_pattern,           # Pattern to introduce to train
+                                   train_pattern_seed = train_pattern_seed, # Seed for the introduction of the BWM into train
+                                   test_pattern = test_pattern)             # Pattern for the test-set
+  
+  
+  # [2] Get the various folds in the data & fit a seperate RF on each of the folds
+  # 2-1 Get the amount of folds in the train-data & check whether there are at least two folds
+  amount_train_folds <- length(unique(train_test_bwm$Train$fold_index))
+  
+  if (amount_train_folds <= 1) {
+    stop("Train-Set only consits of a single fold! FW-Approach makes no sense in such a setting")
+  }
+  
+  # 2-2 Fit a seperate RandomForest to each of the available folds
+  Forest <- list()
+  for (j_ in 1:amount_train_folds) {
+    
+    # --1 Extract the data for fold 'j_' & remove all columns w/ NAs 
+    curr_fold <- train_test_bwm$Train$data[which(train_test_bwm$Train$fold_index == j_),]
+    curr_fold <- curr_fold[,-which(sapply(curr_fold, function(x) sum(is.na(x)) == nrow(curr_fold)))]
+    
+    # --2 Define formula
+    formula_all <- as.formula(paste("ytarget ~ ."))
+    
+    # --3 Define settings for the current foldwise RF 
+    #     (settings for the arguments are the same as in the 'rfsrc'-package)
+    fold_RF <- simpleRF(formula           = formula_all, 
+                        data              = curr_fold, 
+                        num_trees         = 5,    # Same settings as for 'rfSCR' ! 500 !
+                        mtry              = NULL, 
+                        min_node_size     = 1,
+                        replace           = TRUE) # always TRUE, as we need OOB!
+    
+    # --4 Grow the single trees of the just defined 'fold_RF' 
+    fold_RF <- lapply(fold_RF, function(x) {
+      x$grow(replace = TRUE)
+      x
+    })
+    
+    # --5 Ensure the trees are grown correctly
+    fold_RF <- all_trees_grown_correctly(fold_RF)
+    
+    # --6 Add the grown 'fold_RF' to 'Forest'
+    Forest[[j_]] <- fold_RF
+  }
+  
+  # [3] Get predicitons from each foldwise fitted RF on the test-set
+  # 3-1 Remove all columsn with NA from the testdata & check it again then
+  testdata <- train_test_bwm$Test$data
+  testdata <- testdata[ , colSums(is.na(testdata)) == 0]
+  assert_data_frame(testdata, any.missing = F, min.rows = 1)
+  
+  # 3-2 Process the test-data (specific preparation for each FW-fitted RF)
+  #     Convert 'testdata' to same format as the data the FW-RFs	 were originally
+  #     trained with, to ensure factor levels/ features are the same ....
+  tree_testsets <- list()
+  for (i in 1:length(Forest)) {
+    tree_testsets[[i]] <- process_test_data(tree = Forest[[i]][[1]], 
+                                            test_data = testdata)
+  }
+  
+  # 3-3 Get a prediction for every observation in 'testdata' from all FW-RFs
+  #     (class & probabilites) - as the features in Train & Test can be different, 
+  #     the FW-fitted Forests need to be pruned before creating a prediciton
+  tree_preds_all <- list()
+  tree_preds_all <- foreach(i = 1:length(Forest)) %dopar% { # par
+    
+    # save the predictions as 'treeX_pred'
+    return(get_pruned_prediction(trees = Forest[[i]], 
+                                 test_set = tree_testsets[[i]]))
+  }
+  
+  # 3-4 Check whether any of the RFs is not usable [only NA predicitons] & rm it
+  # --1 Get the trees that can not be used for prediciton
+  not_usable <- sapply(seq_len(length(tree_preds_all)), function(i) {
+    all(is.na(tree_preds_all[[i]]$Class))
+  })
+  
+  # --2 Check that there are still trees existing, else no preds possible!
+  if (all(not_usable)) {
+    print("None of the trees are usable for predictions!")
+    return(data.frame("path"             = path, 
+                      "frac_train"         = frac_train, 
+                      "split_seed"         = split_seed, 
+                      "block_seed_train"   = block_seed_train,
+                      "block_seed_test"    = block_seed_test, 
+                      "block_order_train_for_BWM" = paste(train_test_bwm$Train$block_names, collapse = ' - '),
+                      "block_order_test_for_BWM"  = paste(train_test_bwm$Test$block_names, collapse = ' - '),
+                      "train_pattern"      = train_pattern, 
+                      "train_pattern_seed" = train_pattern_seed, 
+                      "test_pattern"       = test_pattern, 
+                      "AUC"                = '---',
+                      "Accuracy"           = '---', 
+                      "Sensitivity"        = '---', 
+                      "Specificity"        = '---', 
+                      "Precision"          = '---', 
+                      "Recall"             = '---', 
+                      "F1"                 = '---', 
+                      "BrierScore"         = '---'))
+  }
+  
+  # --3 Remove the tress, that are not usable from 'Forest', 'tree_preds_all' & 'tree_testsets'
+  if (any(not_usable)) {
+    Forest         <- Forest[-c(which(not_usable))]
+    tree_preds_all <- tree_preds_all[-c(which(not_usable))]
+    tree_testsets  <- tree_testsets[-c(which(not_usable))]
+  }
+  
+  # [4] Get the FW-RFs oob-AUC & aggregate their predicitons weighted by it
+  # 4-1 Loop over all trees and prune them according to the testdata!
+  #    [--> had to be added, as the pruning is not saved when running in parallel]
+  for (i_ in 1:length(Forest)) {
+    curr_test_set <- tree_testsets[[i_]]
+    tmp <- sapply(Forest[[i_]], FUN = function(x) x$prune(curr_test_set))
+  }
+  
+  # 4-2 Get the oob-performance of the pruned trees!
+  AUC_weight <- foreach(l = seq_len(length(Forest))) %dopar% { # par
+    get_oob_AUC(trees = Forest[[l]])
+  }
+  
+  # 4-3 Get the predicitons of all FW-RFs, weight the observations & get an
+  #     aggregated predicted probability  
+  probs_class_1_ <- sapply(1:nrow(testdata), FUN = function(x) {
+    
+    # Get a probability prediciton from each [still usable] tree!
+    preds_all <- sapply(seq_len(length(tree_preds_all)), function(i) {
+      tree_preds_all[[i]]$Probs[[x]][1]                                 # NOT 100% sure whether probs[1] shows prob for class '1'
+    })
+    
+    # Combine the preditions of the different trees!
+    prob_class1 <- weighted.mean(preds_all, w = unlist(AUC_weight), na.rm = TRUE)
+    prob_class1
+  })
+  
+  # 4-4 Convert the probabilites to classes (all w/ prob. > 0.5 is class '1')
+  preds_class_1_ <- ifelse(probs_class_1_ >= 0.5, 1, 0)
+  preds_class_1_ <- factor(preds_class_1_, levels = levels(Forest[[1]][[1]]$data$data[,1]))
+  
+  # [5] Calculate the metrics
+  # 5-1 Confusion Matrix & all corresponding metrics (Acc, F1, Precision, ....)
+  metrics_1 <- caret::confusionMatrix(preds_class_1_,
+                                      train_test_bwm$Test$data$ytarget,
+                                      positive = "1")
+  
+  # 5-2 Calculate the AUC
+  AUC <- pROC::auc(train_test_bwm$Test$data$ytarget, 
+                   probs_class_1_, quiet = T)
+  
+  # 5-3 Calculate the Brier-Score
+  brier <- mean((probs_class_1_ - as.numeric(levels(train_test_bwm$Test$data$ytarget))[train_test_bwm$Test$data$ytarget]) ^ 2)
+  
+  # [6] Return the results as DF
+  return(data.frame("path"               = path, 
+                    "frac_train"         = frac_train, 
+                    "split_seed"         = split_seed, 
+                    "block_seed_train"   = block_seed_train,
+                    "block_seed_test"    = block_seed_test, 
+                    "block_order_train_for_BWM" = paste(train_test_bwm$Train$block_names, collapse = ' - '),
+                    "block_order_test_for_BWM"  = paste(train_test_bwm$Test$block_names, collapse = ' - '),
+                    "train_pattern"      = train_pattern, 
+                    "train_pattern_seed" = train_pattern_seed, 
+                    "test_pattern"       = test_pattern, 
+                    "AUC"                = AUC,
+                    "Accuracy"           = metrics_1$overall['Accuracy'], 
+                    "Sensitivity"        = metrics_1$byClass['Sensitivity'], 
+                    "Specificity"        = metrics_1$byClass['Specificity'], 
+                    "Precision"          = metrics_1$byClass['Precision'], 
+                    "Recall"             = metrics_1$byClass['Recall'], 
+                    "F1"                 = metrics_1$byClass['F1'], 
+                    "BrierScore"         = brier))
+}
+
 #### ----  USe 'code/05...' as template for implementation of the FW-Approach
 
 # ----------- 1 Set arguments for evaluation 
@@ -194,6 +415,11 @@ dim(train_test_bwm$Train$data)
 table(train_test_bwm$Train$fold_index)
 length(unique(train_test_bwm$Train$fold_index))
 
+amount_train_folds <- length(unique(train_test_bwm$Train$fold_index))
+if (amount_train_folds <= 1) {
+  stop("Train-Set only consits of a single fold! FW-Approach makes no sense in such a setting")
+}
+
 # 2-2 Fit the single trees of the whole RandomForest
 Forest <- list()
 for (j_ in 1:length(unique(train_test_bwm$Train$fold_index))) {
@@ -205,15 +431,14 @@ for (j_ in 1:length(unique(train_test_bwm$Train$fold_index))) {
   # Define formula
   formula_all <- as.formula(paste("ytarget ~ ."))
   
-  # Fit a RF to the corresponding folds
+  # Fit a RF to the corresponding folds (arguments are set as for rfsrc-package)
   fold_RF <- simpleRF(formula           = formula_all, 
                       data              = curr_fold, 
-                      num_trees         = 5,     # Same settings as for 'rfSCR' ! 500 !
+                      num_trees         = 5,     # SHOULD BE 500
                       mtry              = NULL, 
                       min_node_size     = 1,
                       replace           = TRUE,  # always TRUE, as we need OOB!
-                      splitrule         = NULL,  # always NULL!
-                      unordered_factors = "ignore")
+                      splitrule         = NULL)  
   
   # Grow the single trees of the RF
   fold_RF <- lapply(fold_RF, function(x) {
@@ -254,7 +479,6 @@ tree_preds_all <- foreach(i = 1:length(Forest)) %dopar% { # par
   return(get_pruned_prediction(trees = Forest[[i]], 
                                test_set = tree_testsets[[i]]))
 }
-
 
 # 3-4 Check whether any of the RFs is not usable [only NA predicitons] & rm it
 # --1 Get the trees that can not be used for prediciton
