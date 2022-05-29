@@ -101,7 +101,19 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
     - Based on predicted & true classes, calculate common metrics   
     - Results of the evaluation are stored in 'Docs/Evaluation_Results/BW_Approach'
 
-#### [7] 06_check_eval_results.R  
+#### [7] 06_Foldwise_Approach.R 
+    - Evaluate the Foldmwise approach on the data with BWM 
+    - Implementation for the specific functions etc. is in '06_1_simpleRF_adaption'
+    - Fit a RF seperatly on each fold of the train-set
+    - Prune each foldwise fitted RF in regards to the test-set 
+    - Evaluate each of the pruned RF internally with the oob-AUC
+    - Predict on the test-set, by creating a weighted average of the predicitons
+      from the fold-wise fitted RFs 
+    - Use the oob-AUC for weighting the predicitons of the fold-wise fitted RFs 
+    - Based on predicted & true classes, calculate common metrics   
+    - Results of the evaluation are stored in 'Docs/Evaluation_Results/FW_Approach'
+
+#### [8] 07_check_eval_results.R  
     - Check the qulaity of th evaluation results 
     - Ensure there are not unexpected results due to unexpected behavior
 
@@ -128,6 +140,8 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
     ├── 03_Single_Block_Approach.R 
     ├── 04_Imputation_Approach.R 
     ├── 05_Blockwise_Approach.R 
-    ├── 06_check_eval_results.R
+    ├── 06_Foldwise_Approach.R 
+    ├── 06_1_simpleRF_adaption.R
+    ├── 07_check_eval_results.R
     └── Example  <- Templates, Examples & scripts to reproduce bugs
 ```
