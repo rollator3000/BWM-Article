@@ -4,7 +4,7 @@
  This is done 5x for each DF in './Data/Raw/' for each possible combination 
  of blockwise missingess patterns in train- & test-set.
  
- BW-Approach:
+ FW-Approach:
   > Fit a seperate RF on each fold of the train-set
   > Prune these foldwise fitted RFs in regard to the test-set
   > Internally evaluate pruned FW-RF with their oob-AUC 
@@ -285,8 +285,8 @@ eval_fw_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75,
     Forest[[j_]] <- fold_RF
   }
   
-  # [3] Get predicitons from each foldwise fitted RF on the test-set
-  # 3-1 Remove all columsn with NA from the testdata & check it again then
+  # [3] Get predicitons from each fold-wise fitted RF on the test-set
+  # 3-1 Remove all columns with NA from the test-data & check it again then
   testdata <- train_test_bwm$Test$data
   testdata <- testdata[ , colSums(is.na(testdata)) == 0]
   assert_data_frame(testdata, any.missing = F, min.rows = 1)
