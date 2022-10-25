@@ -1,13 +1,17 @@
-"Functions for R. Hornung for the implementation of a R-Package for the FW-RF
+"Functions for R. Hornung for the implementation of a R-Package for the foldwise
+ RandomForest Approach
 
  FW-Approach:
+- Training:
   > Fit a seperate RF on each fold of the train-set
-  > Prune these foldwise fitted RFs in regard to the test-set
-  > Internally evaluate pruned FW-RF with their oob-AUC 
-  > Each RF is then used to predict on the observations of the test-set 
-  > Create an overall prediciton by calculating an weighted average of the fold-wise
-    predicitons - as weights we use the oob-AUC of the pruned FW-RFs
-  > Evaluate the results with common metrics (AUC, Accuracy, F-1 Score, ...)
+  
+- Predicition:
+  > Prune the foldwise fitted RFs in regard to the test-set
+  > Internally evaluate the pruned FW-RF with their oob-AUC 
+  > Each FW-RF is then used to predict on the observations of the test-set 
+  > Create an overall prediciton by calculating an weighted average of the 
+    fold-wise predicitons - as weights we use the oob-AUC of the pruned FW-RFs
+  > Get weighted predicitons for each obs. in the test-set
 "
 # [0] SetWD, load packages, define variables and functions                  ----
 # 0-1 Set WD
@@ -162,15 +166,7 @@ get_oob_AUC <- function(trees) {
   return(AUC)
 }
 
-
-data          = train_test_bwm$Train$data
-folds         = train_test_bwm$Train$fold_index
-num_trees     = 500
-mtry          = NULL
-min_node_size = 1
-
-
-# 0-4-5 Train a foldwise RF
+# 0-4-5 Train a fold-wise RF
 train <- function(data, folds, num_trees = 500, mtry = NULL, min_node_size = 1) {
   " Train a seperate RF on each fold available in 'data', such that the final RF
     consists of as many FW-RFs as the data contains unique folds.
@@ -178,56 +174,139 @@ train <- function(data, folds, num_trees = 500, mtry = NULL, min_node_size = 1) 
     Args:
       data (data.frame)  : Dataframe with dimensions n*p. Must contain a binary 
                            factor-column 'ytarget' (0 = neg. class / 1 = pos. class)
-      folds (vec)        : Vector of length 'n' filled with integers. Indicates the 
+      folds (vec)        : Vector of length 'n' filled with integers. Indicating
                            for each row in 'data' to which fold it belongs.
-                           (!! Obs. in the same fold need to be observed in the 
-                               features !!)
-      num_trees (int)    : Amount of trees that are used to grow a foldwise RF
+                           1) Obs. in the same fold need to be observed in the 
+                              features!
+      num_trees (int)    : Amount of trees that are used to grow per foldwise RF
       mtry (int)         : Amount of variables to be checked as split-variables
                            at every split. Default = ceiling(sqrt(p))
-      min_node_size (int): Amount of Observations, that, at least, need 
-                           to be in a terminal node!
+      min_node_size (int): Max. amount of nbservations that have to be in a 
+                           terminal node!
                            
-    Return: Return a list of fold-wise fitted RFs
+    Return: List with as many fold-wise fitted RFs (of class 'foldwise_RF')
+            as the amount of unique folds in the data
   "
-  # [0] Check inputs
+  # [0] Check inputs                                                        ----
   # 0-1 'data' has to be a data.frame & contain 'ytarget' as binary factor variable
   assert_data_frame(data)
   if (!('ytarget' %in% colnames(data))) {
     stop("'data' must contain 'ytarget' as column")
   } 
-  assert_factor(data$ytarget, levels = c('0', '1')
+  assert_factor(data$ytarget, levels = c('0', '1'))
   
   # 0-2 'folds' must be of the same length as 'data' & must only contain integers
-  if (nrow(data) != length(folds)) stop("'folds' & 'data' differ in lenght")
+  if (nrow(data) != length(folds)) {
+    stop("'folds' does not have the same length as 'data' has rows")
+  }
+  assert_integer(folds)
   
   # 0-3 'num_trees' & 'min_node_size' must be integers >= 1
   assert_int(num_trees, lower = 1)
   assert_int(min_node_size, lower = 1)
   
   # 0-4 'mtry' must be an int <= amount of cols in data - if not 'NULL'
-  if is.null(mtry) {
-    mtry = ceiling(sqrt(ncol(data)))
+  if (is.null(mtry)) {
+    mtry = as.integer(ceiling(sqrt(ncol(data))))
   } else {
     assert_int(mtry, upper = ncol(data), lower = 1)
   }
   
+  # [1] Fit a a separate RF on each of the available folds in the data      ----
+  # 1-1 Initialize a list to store the fold-wise fitted RFs
+  Forest <- list()
   
+  # 1-2 Loop over each fold & fit a random-forest to each of them
+  for (j_ in unique(folds)) {
+    
+    # --1 Extract the data for fold 'j_' & remove all columns w/ NAs 
+    curr_fold <- data[which(folds == j_),]
+    curr_fold <- curr_fold[,-which(sapply(curr_fold, function(x) sum(is.na(x)) == nrow(curr_fold)))]
+    
+    # --2 Define formula
+    formula_all <- as.formula(paste("ytarget ~ ."))
+    
+    # --3 Define settings for the current foldwise RF 
+    #     (settings for the arguments are the same as in the 'rfsrc'-package)
+    fold_RF <- simpleRF(formula           = formula_all, 
+                        data              = curr_fold, 
+                        num_trees         = num_trees,
+                        mtry              = as.integer(mtry), 
+                        min_node_size     = min_node_size,
+                        replace           = TRUE) # always TRUE, as we need OOB!
+    
+    # --4 Grow the single trees of the just defined 'fold_RF' 
+    fold_RF <- lapply(fold_RF, function(x) {
+      x$grow(replace = TRUE)
+      x
+    })
+    
+    # --5 Ensure the trees are grown correctly 
+    #    (e.g. might be that no split-vars were found, ...)
+    fold_RF <- all_trees_grown_correctly(fold_RF)
+    
+    # --6 Add the grown 'fold_RF' to 'Forest'
+    Forest[[j_]] <- fold_RF
+    
+    class(Forest[[j_]]) <- 'foldwise_RF'
+  }
   
+  # 1-3 Return the fold-wise fitted RF's
+  return(Forest)
+}
+
+### LOAD DATA FOR IMPLEMENATATION & only keep a fraction of the columns for the implementation
+train_test_bwm <- get_train_test(path = './Data/Raw/BLCA.Rda',  # Path to the data
+                                 frac_train = 0.75,             # Fraction of data used for Training (rest for test)
+                                 split_seed = 12,               # Seed for the split of the data into test- & train
+                                 block_seed_train = 13,         # Seed to shuffle the block-order in train
+                                 block_seed_test = 11,          # Seed to shuffle the block-order in test
+                                 train_pattern = 2,             # Pattern to introduce to train
+                                 train_pattern_seed = 12,       # Seed for the introduction of the BWM into train
+                                 test_pattern = 2)              # Pattern for the test-set
+cols_to_keep_ex           <- colnames(train_test_bwm$Train$data)[seq(from = 1, to = 81875, by = 10)]
+cols_to_keep_ex           <- unique(c(colnames(train_test_bwm$Train$data)[1:4], cols_to_keep_ex, 'ytarget'))
+train_test_bwm$Train$data <- train_test_bwm$Train$data[cols_to_keep_ex]
+train_test_bwm$Test$data  <- train_test_bwm$Test$data[cols_to_keep_ex]
+
+# Train foldwise RF's - needed for 'predict' function
+fw_rfs <- train(data = train_test_bwm$Train$data, 
+                folds = train_test_bwm$Train$fold_index,
+                num_trees = 50,
+                mtry = 50,
+                min_node_size = 1)
+
+
+FW_RFs    = fw_rfs
+test_data = train_test_bwm$Test$data
+test_data <- test_data[ , colSums(is.na(test_data)) == 0]
+
+
+# Write predict-function
+predict <- function(FW_RFs, test_data) {
+  " Get predicitons for the 'test_data' from a fold-wise fitted RF.
+    
+    Args:
+      > FW_RFs          (list): A list filled with the objects of class 'foldwise_RF'
+      > test_data (data.frame): Data we want to get predicitons for from our
+                                FW_RFs - must not contain missing values & all
+                                observations have to be observed in the same 
+                                features. If the data doesn't contain features
+                                the FW_RFs have been trained, no prediciton 
+                                is possible
+                                
+    Return:
+      > Predicted probability for class 1 for each observation in 'test_data'
+  "
+  # [0] Check inputs                                                        ----
+  # 0-1 'FW_RFs' has to be a list & only contain elements of class 'foldwise_RF'
+  assert_list(FW_RFs)
+  if (any(sapply(FW_RFs, function(x) class(x) != 'foldwise_RF'))) {
+    stop("'FW_RFs' must only contain objects of class 'foldwise_RF'")
+  }
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  # 0-2 'test_data' has to be a data-frame w/o any missing values & min 1 obs.
+  assert_data_frame(test_data, any.missing = F, min.rows = 1)
   
   
   
