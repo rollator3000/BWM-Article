@@ -217,15 +217,6 @@ eval_fw_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75,
                                    train_pattern_seed = train_pattern_seed, # Seed for the introduction of the BWM into train
                                    test_pattern = test_pattern)             # Pattern for the test-set
   
-  # TEMPORATILY - TEMPORATILY - TEMPORATILY - TEMPORATILY - TEMPORATILY - TEMPORATILY - TEMPORATILY - TEMPORATILY
-  # TEMPORATILY - TEMPORATILY - Only done, so we can test the function on my local machine - TEMPORATILY - TEMPORATILY
-  # TEMPORATILY - TEMPORATILY - TEMPORATILY - TEMPORATILY - TEMPORATILY - TEMPORATILY - TEMPORATILY - TEMPORATILY
-  # 1-2 Only keep every 10 variable for lower comp. needs
-  cols_to_keep_ex           <- colnames(train_test_bwm$Train$data)[seq(from = 1, to = 81875, by = 10)]
-  cols_to_keep_ex           <- unique(c(colnames(train_test_bwm$Train$data)[1:4], cols_to_keep_ex, 'ytarget'))
-  train_test_bwm$Train$data <- train_test_bwm$Train$data[cols_to_keep_ex]
-  train_test_bwm$Test$data  <- train_test_bwm$Test$data[cols_to_keep_ex]
-  
   # [2] Get the various folds in the data & fit a seperate RF on each of the folds
   # 2-1 Get the amount of folds in the train-data & check whether there are at least two folds
   amount_train_folds <- length(unique(train_test_bwm$Train$fold_index))
