@@ -285,37 +285,14 @@ train <- function(data, folds, num_trees = 500, mtry = NULL, min_node_size = 1) 
   return(Forest)
 }
 
-### LOAD EXEMPLARY DATA FOR IMPLEMENATATION 
-#     -> only keep a fraction of the columns for the implementation
-train_test_bwm <- get_train_test(path = './Data/Raw/BLCA.Rda',  # Path to the data
-                                 frac_train = 0.75,             # Fraction of data used for Training (rest for test)
-                                 split_seed = 12,               # Seed for the split of the data into test- & train
-                                 block_seed_train = 13,         # Seed to shuffle the block-order in train
-                                 block_seed_test = 11,          # Seed to shuffle the block-order in test
-                                 train_pattern = 2,             # Pattern to introduce to train
-                                 train_pattern_seed = 12,       # Seed for the introduction of the BWM into train
-                                 test_pattern = 2)              # Pattern for the test-set
-cols_to_keep_ex           <- colnames(train_test_bwm$Train$data)[seq(from = 1, to = 81875, by = 10)]
-cols_to_keep_ex           <- unique(c(colnames(train_test_bwm$Train$data)[1:4], cols_to_keep_ex, 'ytarget'))
-train_test_bwm$Train$data <- train_test_bwm$Train$data[cols_to_keep_ex]
-train_test_bwm$Test$data  <- train_test_bwm$Test$data[cols_to_keep_ex]
-
-# Train foldwise RF's - needed for 'predict' function
-fw_rfs <- train(data = train_test_bwm$Train$data, 
-                folds = train_test_bwm$Train$fold_index,
-                num_trees = 50,
-                mtry = 50,
-                min_node_size = 1)
-
-
-FW_RFs    = fw_rfs
-test_data = train_test_bwm$Test$data
-test_data <- test_data[ , colSums(is.na(test_data)) == 0]
-
-
-# Write predict-function
+# 0-4-6 Write predict-function
 predict <- function(FW_RFs, test_data) {
   " Get predicitons for the 'test_data' from a fold-wise fitted RF.
+    To do so, process the test-datafor each foldwise-fitted RF such that it has 
+    the exact same lay-out as the data the fold-wise RF has been fit on.
+    After that prune each of the fold-wise fitted RFs in regard to the test-set
+    (cut their nodes,  if they use a non-availabe split-variable). Then each 
+    fold-wise RF predicts the class probability for each obs. in the test-set. 
     
     Args:
       > FW_RFs          (list): A list filled with the objects of class 'foldwise_RF'
@@ -327,7 +304,11 @@ predict <- function(FW_RFs, test_data) {
                                 is possible
                                 
     Return:
-      > Predicted probability for class 1 for each observation in 'test_data'
+      > List of the same lenght as 'FW_RFs', whereby each list contains the 
+        predicted classes & probabilites (for class 1) for each observation
+        in the test-set. 
+        These predicitons can then be combined in various ways (e.g. weighted, 
+        unweighted) to create a final prediciton.
   "
   # [0] Check inputs                                                        ----
   # 0-1 'FW_RFs' has to be a list & only contain elements of class 'foldwise_RF'
@@ -337,8 +318,62 @@ predict <- function(FW_RFs, test_data) {
   }
   
   # 0-2 'test_data' has to be a data-frame w/o any missing values & min 1 obs.
+  #        --> All obs. must be observed in the same features
   assert_data_frame(test_data, any.missing = F, min.rows = 1)
   
+  # [1] Process 'test_data' (specific preparation for each FW-fitted RF)
+  #     -> Convert 'test_data' to the same format of the data the FW-RFs were 
+  #        originally trained with, to ensure factor levels/ features are the same ....
+  tree_testsets <- list()
+  for (i in 1:length(FW_RFs)) {
+    tree_testsets[[i]] <- process_test_data(tree = FW_RFs[[i]][[1]], 
+                                            test_data = test_data)
+  }
   
+  # [2] Get a prediction for every observation in 'test_data' from each FW-RFs
+  #     (class & probabilities) - as the features in Train & Test can be different, 
+  #     the FW-fitted Forests need to be pruned before creating a prediction
+  tree_preds_all <- list()
+  tree_preds_all <- foreach(i = 1:length(FW_RFs)) %do% { 
+    
+    # save the predictions as 'treeX_pred'
+    get_pruned_prediction(trees = FW_RFs[[i]], 
+                          test_set = tree_testsets[[i]])
+  }
   
+  # [3] Return the predicted probabilities & classes for each observation from
+  #     each of the fold-wise fitted RFs
+  return(tree_preds_all)
 }
+
+# ----- EXAMPLE OF USAGE -------------------------------------------------------
+### LOAD EXEMPLARY DATA & only keep a fraction of the columns due to the run-time
+# [1] Exemplary Test- & Train-Data
+train_test_bwm <- get_train_test(path = './Data/Raw/BLCA.Rda',  # Path to the data
+                                 frac_train = 0.75,             # Fraction of data used for Training (rest for test)
+                                 split_seed = 12,               # Seed for the split of the data into test- & train
+                                 block_seed_train = 13,         # Seed to shuffle the block-order in train
+                                 block_seed_test = 11,          # Seed to shuffle the block-order in test
+                                 train_pattern = 2,             # Pattern to introduce to train
+                                 train_pattern_seed = 12,       # Seed for the introduction of the BWM into train
+                                 test_pattern = 2)              # Pattern for the test-set
+
+# [2] Reduce the dimensions of the test- & train-data
+cols_to_keep_ex           <- colnames(train_test_bwm$Train$data)[seq(from = 1, to = 81875, by = 10)]
+cols_to_keep_ex           <- unique(c(colnames(train_test_bwm$Train$data)[1:4], cols_to_keep_ex, 'ytarget'))
+train_test_bwm$Train$data <- train_test_bwm$Train$data[cols_to_keep_ex]
+train_test_bwm$Test$data  <- train_test_bwm$Test$data[cols_to_keep_ex]
+
+# [3] Train foldwise RF on it -
+fw_rfs <- train(data  = train_test_bwm$Train$data, 
+                folds = train_test_bwm$Train$fold_index,
+                num_trees = 50, mtry = 50, min_node_size = 1)
+
+# [4] Get predicted classes & class-probabilites for each obs. in the test-set
+predicitons <- predict(FW_RFs    = fw_rfs, 
+                       test_data = train_test_bwm$Test$data[, colSums(is.na(train_test_bwm$Test$dat)) == 0])
+
+# [5] Create a weighted average
+# OPTIONAL TO DO ---------------------------------------------------------------
+# --> ADD FUNCTION TO CREATE A WEIGHTED PREDICTION
+# ------------------------------------------------------------------------------
