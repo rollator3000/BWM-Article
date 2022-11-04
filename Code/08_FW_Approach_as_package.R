@@ -208,13 +208,20 @@ train <- function(data, folds, num_trees = 500, mtry = NULL, min_node_size = 1) 
     curr_obs <- which(folds == curr_fold)
     
     # Get the observed feature for the first observation in 'curr_obs'
-    obs_feas_in_curr_fold <- colnames(data[curr_obs[1],])
+    obs_feas_in_curr_fold <- colnames(data[curr_obs[1],
+                                           which(!is.na(data[curr_obs[1],]), 
+                                                 arr.ind=TRUE)])
     
     # Compare the observed features from the remaining 'curr_obs' to 
     # 'obs_feas_in_curr_fold' & ensure all feas are available for both
     check_common_colnames <- sapply(curr_obs[2:length(curr_obs)], function(x) {
-      check1 <- all(colnames(data[x,]) %in% obs_feas_in_curr_fold)
-      check2 <- all(obs_feas_in_curr_fold %in% colnames(data[x,]))
+      
+      # observed columns for the current obs.
+      colnames_curr_obs <- colnames(data[x, which(!is.na(data[x,]), 
+                                                  arr.ind = TRUE)])
+      
+      check1 <- all(colnames_curr_obs %in% obs_feas_in_curr_fold)
+      check2 <- all(obs_feas_in_curr_fold %in% colnames_curr_obs)
       
       any(!c(check1, check2))
     })
