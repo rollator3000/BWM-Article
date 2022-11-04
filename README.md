@@ -3,7 +3,6 @@
 This article is written in collaboration with Dr. R. Hornung *(IBE @LMU)* & J. Hagenberg.  
 My personal contribution to the article is the implementation of various RF-approaches and their evaluation.  
 
-
 ## Project description
 This project compares different approaches capable to deal with block-wise missingness in Multi-Omics data.  
 The approaches are either based on the random-forest or on the penalised-regression approach - this repository focuses on the random-forest based approaches.     
@@ -117,6 +116,9 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
     - Check the qulaity of th evaluation results 
     - Ensure there are not unexpected results due to unexpected behavior
 
+#### [9] 08_FW_Approach_as_package.R
+    - Basisis for the implemention of the foldwise-RF approach as R-package 
+
 ## Folder-Structure  
 ```
 ├── README.md <- Top-level README for devs working with this repository
@@ -143,5 +145,6 @@ This section contains short descriptions to the scripts in 'Code/' - there is an
     ├── 06_Foldwise_Approach.R 
     ├── 06_1_simpleRF_adaption.R
     ├── 07_check_eval_results.R
+    ├── 08_FW_Approach_as_package.R
     └── Example  <- Templates, Examples & scripts to reproduce bugs
 ```
