@@ -176,8 +176,8 @@ train <- function(data, folds, num_trees = 500, mtry = NULL, min_node_size = 1) 
                            factor-column 'ytarget' (0 = neg. class / 1 = pos. class)
       folds (vec)        : Vector of length 'n' filled with integers. Indicating
                            for each row in 'data' to which fold it belongs.
-                           1) Obs. in the same fold need to be observed in the 
-                              features!
+                           ! Obs. in the same fold need to be observed in the 
+                             same features !
       num_trees (int)    : Amount of trees that are used to grow per foldwise RF
       mtry (int)         : Amount of variables to be checked as split-variables
                            at every split. Default = ceiling(sqrt(p))
@@ -201,11 +201,34 @@ train <- function(data, folds, num_trees = 500, mtry = NULL, min_node_size = 1) 
   }
   assert_integer(folds)
   
-  # 0-3 'num_trees' & 'min_node_size' must be integers >= 1
+  # 0-3 Ensure that all obs. in the same fold have the same features
+  for (curr_fold in unique(folds)) {
+
+    # Get the observations of 'curr_fold'
+    curr_obs <- which(folds == curr_fold)
+    
+    # Get the observed feature for the first observation in 'curr_obs'
+    obs_feas_in_curr_fold <- colnames(data[curr_obs[1],])
+    
+    # Compare the observed features from the remaining 'curr_obs' to 
+    # 'obs_feas_in_curr_fold' & ensure all feas are available for both
+    check_common_colnames <- sapply(curr_obs[2:length(curr_obs)], function(x) {
+      check1 <- all(colnames(data[x,]) %in% obs_feas_in_curr_fold)
+      check2 <- all(obs_feas_in_curr_fold %in% colnames(data[x,]))
+      
+      any(!c(check1, check2))
+    })
+    
+    if (any(check_common_colnames)) {
+      stop("Observations in the same folds, do not have the same observed features!")
+    }
+  }
+  
+  # 0-4 'num_trees' & 'min_node_size' must be integers >= 1
   assert_int(num_trees, lower = 1)
   assert_int(min_node_size, lower = 1)
   
-  # 0-4 'mtry' must be an int <= amount of cols in data - if not 'NULL'
+  # 0-5 'mtry' must be an int <= amount of cols in data - if not 'NULL'
   if (is.null(mtry)) {
     mtry = as.integer(ceiling(sqrt(ncol(data))))
   } else {
@@ -255,7 +278,8 @@ train <- function(data, folds, num_trees = 500, mtry = NULL, min_node_size = 1) 
   return(Forest)
 }
 
-### LOAD DATA FOR IMPLEMENATATION & only keep a fraction of the columns for the implementation
+### LOAD EXEMPLARY DATA FOR IMPLEMENATATION 
+#     -> only keep a fraction of the columns for the implementation
 train_test_bwm <- get_train_test(path = './Data/Raw/BLCA.Rda',  # Path to the data
                                  frac_train = 0.75,             # Fraction of data used for Training (rest for test)
                                  split_seed = 12,               # Seed for the split of the data into test- & train
