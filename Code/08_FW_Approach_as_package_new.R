@@ -16,9 +16,9 @@
 # [0] SetWD, load packages, define variables and functions                  ----
 # 0-1 Set WD
 # setwd("/Users/frederik/Desktop/BWM-Article/")             # Mac
-# setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
+setwd("C:/Users/kuche/Desktop/BWM-Paper")                 # Windows
 # setwd("/dss/dsshome1/lxc0B/ru68kiq3/Project/BWM-Article") # Server
-setwd("Z:/Projects/SideProjects/BlockwiseMissing/RPackage/BWM-Article")
+# setwd("Z:/Projects/SideProjects/BlockwiseMissing/RPackage/BWM-Article")
 
 # 0-2 Load packages
 library(checkmate)
@@ -167,15 +167,9 @@ get_oob_AUC <- function(trees) {
   return(AUC)
 }
 
-
-
-
-
-
-
 # 0-4-5 Train a fold-wise RF
 multisfor <- function(data, folds, num_trees = 500, mtry = NULL, min_node_size = 1) {
-  " Train a seperate RF on each fold available in 'data', such that the final RF
+  " Train a seperate RF on each fold in 'data', such that the final RF
     consists of as many FW-RFs as the data contains unique folds.
     
     Args:
@@ -191,8 +185,9 @@ multisfor <- function(data, folds, num_trees = 500, mtry = NULL, min_node_size =
       min_node_size (int): Max. amount of nbservations that have to be in a 
                            terminal node!
                            
-    Return: List with as many fold-wise fitted RFs (of class 'multisourceRF')
-            as the amount of unique folds in the data
+    Return: 
+      List with as many fold-wise fitted RFs (of class 'multisourceRF')
+      as the amount of unique folds in the data
   "
   # [0] Check inputs                                                        ----
   # 0-1 'data' has to be a data.frame & contain 'ytarget' as binary factor variable
@@ -294,29 +289,29 @@ multisfor <- function(data, folds, num_trees = 500, mtry = NULL, min_node_size =
 }
 
 # 0-4-6 Write predict-function
-predict.multisfor <- function(object, data) {
-  " Get predicitons for the 'data' from a fold-wise fitted RF.
-    To do so, process the test-datafor each foldwise-fitted RF such that it has 
-    the exact same lay-out as the data the fold-wise RF has been fit on.
-    After that prune each of the fold-wise fitted RFs in regard to the test-set
-    (cut their nodes,  if they use a non-availabe split-variable). Then each 
+predict.multisfor <- function(object, data, weighted = T) {
+  " Get predicitons for the 'data' from a fold-wise fitted RF ('object').
+    To do so, process the test-data for each foldwise-fitted RF such that it has 
+    the exact same lay-out as the data the fold-wise RF has been trained on.
+    After that, prune each of the fold-wise fitted RFs in regard to the test-set
+    (cut their nodes, if they use a non-availabe split-variable). Then each 
     fold-wise RF predicts the class probability for each obs. in the test-set. 
     
     Args:
-      > object          (list): An object of class 'multisfor'.
+      > object     (list): An object of class 'multisfor'
+                           (see 'multisfor()'-function)
       > data (data.frame): Data we want to get predicitons for from our
-                                FW_RFs - must not contain missing values & all
-                                observations have to be observed in the same 
-                                features. If the data doesn't contain features
-                                the FW_RFs have been trained, no prediciton 
-                                is possible
+                           FW_RFs - must not contain missing values & all
+                           observations have to be observed in the same 
+                           features. If the data doesn't contain features the
+                           FW_RFs have been trained, no prediciton is possible
+      > weighted   (bool): Shall the oob-AUC of the pruned fold-wise fitted trees
+                           be used to create a weighted average of the prediciton?
+                            -> else it will be an unweighted average
                                 
     Return:
-      > List of the same lenght as 'FW_RFs', whereby each list contains the 
-        predicted classes & probabilites (for class 1) for each observation
-        in the test-set. 
-        These predicitons can then be combined in various ways (e.g. weighted, 
-        unweighted) to create a final prediciton.
+      > Vector with the predicted probability for each observation to belong to 
+        class '1'.
   "
   # [0] Check inputs                                                        ----
   # 0-1 'object' has to be of class 'multisfor'
@@ -334,8 +329,8 @@ predict.multisfor <- function(object, data) {
   #        originally trained with, to ensure factor levels/ features are the same ....
   tree_testsets <- list()
   for (i in 1:length(object)) {
-    tree_testsets[[i]] <- process_data(tree = object[[i]][[1]], 
-                                            data = data)
+    tree_testsets[[i]] <- process_test_data(tree      = object[[i]][[1]], 
+                                            test_data = data)
   }
   
   # [2] Get a prediction for every observation in 'data' from each FW-RFs
@@ -345,21 +340,68 @@ predict.multisfor <- function(object, data) {
   tree_preds_all <- foreach(i = 1:length(object)) %do% { 
     
     # save the predictions as 'treeX_pred'
-    get_pruned_prediction(trees = object[[i]], 
+    get_pruned_prediction(trees    = object[[i]], 
                           test_set = tree_testsets[[i]])
   }
   
-  # [3] Return the predicted probabilities & classes for each observation from
-  #     each of the fold-wise fitted RFs
-  return(tree_preds_all)
+  # [3] Generate a (weighted) average of the predicitons
+  # 3-1 Check whether any of the RFs is not usable [only NA predicitons] & rm it
+  not_usable <- sapply(seq_len(length(tree_preds_all)), function(i) {
+    all(is.na(tree_preds_all[[i]]$Class))
+  })
+  
+  # 3-2 Check if the any of the trees are still usable after the pruning.
+  #     And remove these trees that can not be used for predictions from 
+  #     'tree_preds_all'
+  if (all(not_usable)) {
+    stop("None of the trees are usable for predictions!")
+  } else if (any(not_usable)) {
+    object         <- object[-c(which(not_usable))]
+    tree_preds_all <- tree_preds_all[-c(which(not_usable))]
+    tree_testsets  <- tree_testsets[-c(which(not_usable))]
+  }
+  
+  # 3-3 Get the oob-metric for the remaining (& already pruned) FW-RFs
+  # --3-1 Loop over all trees and prune them according to the testdata!
+  for (i_ in 1:length(object)) {
+    curr_test_set <- tree_testsets[[i_]]
+    tmp           <- sapply(object[[i_]], FUN = function(x) x$prune(curr_test_set))
+  }
+  
+  # --3-2 Get the oob-performance of the pruned trees!
+  AUC_weight <- foreach(l = seq_len(length(object))) %dopar% { # par
+    get_oob_AUC(trees = object[[l]])
+  }
+  
+  # --3-3 Get the predicted probabilities for class 1 for each observation & 
+  #       from each of the remaining FW-RFs
+  probs_class_1_ <- sapply(1:nrow(data), FUN = function(x) {
+    
+    # Get a probability prediciton from each [still usable] tree!
+    preds_all <- sapply(seq_len(length(tree_preds_all)), function(i) {
+      tree_preds_all[[i]]$Probs[[x]][1]
+    })
+    
+    # Combine the preditions of the different trees!
+    if (weighted) {
+      prob_class1 <- weighted.mean(preds_all, w = unlist(AUC_weight), na.rm = TRUE)
+    } else {
+      prob_class1 <- mean(preds_all)
+    }
+    
+    prob_class1
+  })
+  
+  # [3] Return the predicted probabilities for each observation to belong 
+  #     to class '1' 
+  return(prob_class1)
 }
 
-
+# -------------------- FOR THE IMPLEMENTATION ----------------------------------
+# (1) Generate a DF with reduced dimensions for the implementation
 if (FALSE) {
   
-  # ----- EXAMPLE OF USAGE -------------------------------------------------------
-  ### LOAD EXEMPLARY DATA & only keep a fraction of the columns due to the run-time
-  # [1] Exemplary Test- & Train-Data
+  # 1-1 Load an exemplary Test- & Train-Set
   train_test_bwm <- get_train_test(path = './Data/Raw/BLCA.Rda',  # Path to the data
                                    frac_train = 0.75,             # Fraction of data used for Training (rest for test)
                                    split_seed = 12,               # Seed for the split of the data into test- & train
@@ -369,38 +411,35 @@ if (FALSE) {
                                    train_pattern_seed = 12,       # Seed for the introduction of the BWM into train
                                    test_pattern = 2)              # Pattern for the test-set
   
-  # [2] Reduce the dimensions of the test- & train-data
+  # 1-2 Reduce the dimensions of the test- & train-data by 90%
   cols_to_keep_ex           <- colnames(train_test_bwm$Train$data)[seq(from = 1, to = 81875, by = 10)]
   cols_to_keep_ex           <- unique(c(colnames(train_test_bwm$Train$data)[1:4], cols_to_keep_ex, 'ytarget'))
   train_test_bwm$Train$data <- train_test_bwm$Train$data[cols_to_keep_ex]
   train_test_bwm$Test$data  <- train_test_bwm$Test$data[cols_to_keep_ex]
   
-  
+  # 1-3 Extract the test & train-data from the list
   datatrain <- train_test_bwm$Train$data
+  datatest  <- train_test_bwm$Test$data[, colSums(is.na(train_test_bwm$Test$dat)) == 0]
+  
+  # 1-4 Get the assigned folds per observation
   foldstrain <- train_test_bwm$Train$fold_index
   
-  datatest <- train_test_bwm$Test$data[, colSums(is.na(train_test_bwm$Test$dat)) == 0]
-  
-  save(datatrain, foldstrain, datatest, file="./Data/ExampleData.Rda")
-  
+  # 1-5 Save the data to '
+  save(datatrain, foldstrain, datatest, file="./Data/Example_Data/ExampleData_Package.Rda")
 }
 
+# (2) Load the data forthe implementaion
+load("./Data/Example_Data/ExampleData_Package.Rda")
 
 
-
-load("./Data/ExampleData.Rda")
-
-
-# [3] Train foldwise RF on it -
-fw_rfs <- multisfor(data  = datatrain, 
-                folds = foldstrain,
-                num_trees = 50, mtry = 50, min_node_size = 1)
+# [3] Fit a FW-RF on the train-set
+fw_rfs <- multisfor(data          = datatrain, 
+                    folds         = foldstrain,
+                    num_trees     = 50, 
+                    mtry          = 50,
+                    min_node_size = 1)
 
 # [4] Get predicted classes & class-probabilites for each obs. in the test-set
-predictions <- predict(object    = fw_rfs, 
-                       data = datatest)
-
-# [5] Create a weighted average
-# OPTIONAL TO DO ---------------------------------------------------------------
-# --> ADD FUNCTION TO CREATE A WEIGHTED PREDICTION
-# ------------------------------------------------------------------------------
+predictions <- predict(object   = fw_rfs, 
+                       data     = datatest,
+                       weighted = T)
