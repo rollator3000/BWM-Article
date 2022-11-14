@@ -313,7 +313,7 @@ predict.multisfor <- function(object, data, weighted = T) {
       > Vector with the predicted probability for each observation to belong to 
         class '1'.
   "
-  # [0] Check inputs                                                        ----
+  # [0] Check inputs
   # 0-1 'object' has to be of class 'multisfor'
   assert_list(object)
   if (class(object) != 'multisfor') {
@@ -372,7 +372,7 @@ predict.multisfor <- function(object, data, weighted = T) {
   }
   
   # --3-2 Get the oob-performance of the pruned trees!
-  AUC_weight <- foreach(l = seq_len(length(object))) %dopar% { # par
+  AUC_weight <- foreach(l = seq_len(length(object))) %do% { # par
     get_oob_AUC(trees = object[[l]])
   }
   
@@ -387,9 +387,9 @@ predict.multisfor <- function(object, data, weighted = T) {
     
     # Combine the preditions of the different trees!
     if (weighted) {
-      preds_all_w <-weighted.mean(preds_all, w = unlist(AUC_weight), na.rm = TRUE)
+      preds_all_w <- weighted.mean(preds_all, w = unlist(AUC_weight), na.rm = TRUE)
     } else {
-      preds_all_w <- mean(preds_all)
+      preds_all_w <- mean(preds_all, na.rm = TRUE)
     }
     
     preds_all_w
