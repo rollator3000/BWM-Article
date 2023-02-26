@@ -86,7 +86,7 @@ process_loaded_data <- function(raw_data) {
   }
   
   # 0-2 Each element in 'raw_data' must be a dataframe/ matrix
-  if (! all(sapply(raw_data, function(x) class(x) == "data.frame" || class(x) == "matrix"))) {
+  if (! all(sapply(raw_data, function(x) class(x)[1] == "data.frame" || class(x)[1] == "matrix"))) {
     stop("'raw_data' must only contain data.frames/ matrices!")
   }
   
