@@ -24,7 +24,7 @@ library(checkmate)
 library(randomForestSRC)
 library(caret)
 library(pROC)
-library(doParallel)
+library(parallel)
 
 # 0-3 Define variables
 
@@ -402,7 +402,6 @@ eval_fw_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75,
                     "F1"                 = metrics_1$byClass['F1'], 
                     "BrierScore"         = brier))
 }
-
 # [1] Run the experiments                                                    ----
 # 1-1 Initalize a empty DF to store the results
 FW_res <- data.frame()
@@ -455,7 +454,7 @@ for (curr_path in df_paths) {
         curr_train_pattern_seed <- seeds[4]
         
         # Run the evaluation with current settings
-        curr_res2 <- tryCatch(eval_fw_approach(path               = curr_path, 
+        curr_res2 <- tryCatch(eval_fw_approach(path              = curr_path, 
                                               frac_train         = 0.75, 
                                               split_seed         = curr_split_seed,
                                               block_seed_train   = curr_block_seed_train, 
